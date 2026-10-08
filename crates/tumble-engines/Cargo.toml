@@ -1,0 +1,27 @@
+[package]
+name = "tumble-engines"
+description = "Converter engines (image, resvg, libheif, PDFium, FFmpeg, LibreOffice) and default_registry()."
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[dependencies]
+tumble-core.workspace = true
+image.workspace = true
+webp.workspace = true
+resvg.workspace = true
+rav1d.workspace = true
+avif-parse.workspace = true
+exr.workspace = true
+libloading.workspace = true
+serde_json.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Security", "Win32_System_JobObjects", "Win32_System_Threading", "Win32_System_Diagnostics_ToolHelp"] }
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

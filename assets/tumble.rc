@@ -1,0 +1,4 @@
+// Embedded in tumble.exe and tumblew.exe by crates/tumble-cli/build.rs.
+// Source artwork: tumble.png (Figma export, 588 px). tumble.svg is the editable
+// shape only: Figma's noise texture does not survive SVG export.
+1 ICON "tumble.ico"

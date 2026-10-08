@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tumble</title>
+    <link rel="stylesheet" href="/src/styles.css" />
+    <script type="module" src="/src/main.ts" defer></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <img src="/tumble.png" alt="" width="22" height="22" />
+        <span>Tumble</span>
+      </div>
+      <ul class="engines" id="engines" aria-label="Engines"></ul>
+    </header>
+
+    <main>
+      <section class="toolbar" id="toolbar" hidden>
+        <label class="field">
+          <span>Convert to</span>
+          <select id="target"></select>
+        </label>
+        <label class="field">
+          <span>Preset</span>
+          <select id="preset"><option value="">None</option></select>
+        </label>
+        <label class="field">
+          <span>Quality <output id="quality-value">auto</output></span>
+          <input type="range" id="quality" min="0" max="100" value="85" />
+        </label>
+        <label class="field">
+          <span>Resize</span>
+          <input type="text" id="resize" placeholder="2048 or 1920x1080" spellcheck="false" />
+        </label>
+        <div class="field">
+          <span>Save to</span>
+          <button type="button" class="link" id="out-dir">Next to originals</button>
+        </div>
+        <div class="actions">
+          <button type="button" class="secondary" id="clear">Clear finished</button>
+          <button type="button" class="primary" id="convert">Convert</button>
+        </div>
+      </section>
+
+      <section class="drop" id="drop">
+        <div class="drop-inner">
+          <p class="drop-title">Drop files or folders here</p>
+          <p class="drop-sub">Images, video, audio, PDFs and documents. Nothing leaves this PC.</p>
+          <div class="drop-buttons">
+            <button type="button" class="secondary" id="add-files">Add files…</button>
+            <button type="button" class="secondary" id="add-folder">Add folder…</button>
+          </div>
+        </div>
+      </section>
+
+      <ol class="queue" id="queue" aria-label="Queue"></ol>
+    </main>
+
+    <footer class="status" id="status" aria-live="polite"></footer>
+    <div class="overlay" id="overlay" hidden><p>Drop to add</p></div>
+  </body>
+</html>

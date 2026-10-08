@@ -1,0 +1,5 @@
+; COM in-proc server entry points. PRIVATE keeps them out of the import
+; library, as Windows expects for these two functions.
+EXPORTS
+    DllGetClassObject PRIVATE
+    DllCanUnloadNow PRIVATE

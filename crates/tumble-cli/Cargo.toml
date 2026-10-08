@@ -1,0 +1,37 @@
+[package]
+name = "tumble-cli"
+description = "tumble.exe (console) and tumblew.exe (GUI subsystem, used by the right-click menu)."
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "tumble"
+path = "src/main.rs"
+
+[[bin]]
+name = "tumblew"
+path = "src/bin/tumblew.rs"
+
+[dependencies]
+tumble-core.workspace = true
+tumble-engines.workspace = true
+clap.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+rayon.workspace = true
+ctrlc.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+tumble-shell.workspace = true
+
+[build-dependencies]
+embed-resource = "3"
+
+[dev-dependencies]
+image.workspace = true
+tempfile.workspace = true
+
+[lints]
+workspace = true
