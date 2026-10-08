@@ -45,7 +45,18 @@ OutputDir=..\dist
 OutputBaseFilename=tumble-{#AppVersion}-setup
 
 [Tasks]
-Name: desktopicon; Description: "Create a desktop shortcut for the desktop window"; Flags: unchecked
+; Both are unchecked and only offered when winget is available and the
+; program isn't installed yet. They are separate apps, so uninstalling
+; Tumble leaves them alone.
+Name: ffmpeg; GroupDescription: "Optional free programs:"; Flags: unchecked; Check: CanInstallFFmpeg; \
+    Description: "FFmpeg (about 110 MB download): lets Tumble convert video and audio, like MP4 to MP3"
+Name: libreoffice; GroupDescription: "Optional free programs:"; Flags: unchecked; Check: CanInstallLibreOffice; \
+    Description: "LibreOffice (about 350 MB download): lets Tumble convert documents, slides and spreadsheets, like Word to PDF; Windows will ask for admin rights"
+Name: desktopicon; GroupDescription: "Shortcuts:"; Flags: unchecked; \
+    Description: "Create a desktop shortcut for the desktop window"
+
+[Messages]
+SelectTasksLabel2=Tumble converts images and PDFs on its own. To convert video, audio and documents too, it can install these free programs from their official sources. They install as separate apps, stay on your PC if you uninstall Tumble, and can also be installed later.
 
 [Files]
 ; README.txt explains the zip, so the installer leaves it out.
@@ -59,10 +70,6 @@ Name: "{userdesktop}\Tumble"; Filename: "{app}\tumble-desktop.exe"; Tasks: deskt
 [Registry]
 Root: HKCU; Subkey: "Environment"; ValueType: expandsz; ValueName: "Path"; \
     ValueData: "{olddata};{app}"; Check: NeedsAddPath(ExpandConstant('{app}'))
-
-[Run]
-Filename: "{app}\tumble.exe"; Parameters: "menu install"; Flags: runhidden; \
-    StatusMsg: "Adding the right-click menu..."
 
 [UninstallRun]
 Filename: "{app}\tumble.exe"; Parameters: "menu uninstall"; Flags: runhidden; \
@@ -85,9 +92,9 @@ const
     load when PSModulePath comes from PowerShell 7. }
   CertStore = '$s = New-Object Security.Cryptography.X509Certificates.X509Store(''TrustedPeople'', ''LocalMachine''); ';
   CertCheck = '-NoProfile -NonInteractive -Command "' + CertStore +
-    '$s.Open(''ReadOnly''); if ($s.Certificates | Where-Object { $_.Subject -eq ''CN=Tumble Dev'' }) { exit 1 }"';
+    '$s.Open(''ReadOnly''); if ($s.Certificates | Where-Object { $_.Subject -in ''CN=Tumble'', ''CN=Tumble Dev'' }) { exit 1 }"';
   CertRemove = '-NoProfile -NonInteractive -Command "' + CertStore +
-    '$s.Open(''ReadWrite''); $s.Certificates | Where-Object { $_.Subject -eq ''CN=Tumble Dev'' } | ForEach-Object { $s.Remove($_) }"';
+    '$s.Open(''ReadWrite''); $s.Certificates | Where-Object { $_.Subject -in ''CN=Tumble'', ''CN=Tumble Dev'' } | ForEach-Object { $s.Remove($_) }"';
 
 { Path entries are compared case-insensitively, ignoring a trailing slash. }
 function PathHas(Paths, Dir: string): Boolean;
@@ -147,6 +154,94 @@ begin
       Log(Format('Certificate removal exited with code %d.', [Code]))
     else
       Log(Format('Certificate removal did not run: %s', [SysErrorMessage(Code)]));
+  end;
+end;
+
+function OnPath(Exe: string): Boolean;
+begin
+  Result := FileSearch(Exe, GetEnv('PATH')) <> '';
+end;
+
+function DirMatches(Pattern: string): Boolean;
+var
+  Found: TFindRec;
+begin
+  Result := FindFirst(Pattern, Found);
+  if Result then
+    FindClose(Found);
+end;
+
+function HasWinget: Boolean;
+begin
+  Result := OnPath('winget.exe') or FileExists(ExpandConstant('{localappdata}\Microsoft\WindowsApps\winget.exe'));
+end;
+
+{ The same places Tumble looks (crates/tumble-engines/src/ffmpeg and office). }
+function HasFFmpeg: Boolean;
+begin
+  Result := OnPath('ffmpeg.exe')
+    or DirMatches(ExpandConstant('{localappdata}\Microsoft\WinGet\Packages\Gyan.FFmpeg*'))
+    or FileExists(ExpandConstant('{localappdata}\Microsoft\WinGet\Links\ffmpeg.exe'))
+    or FileExists(GetEnv('USERPROFILE') + '\scoop\apps\ffmpeg\current\bin\ffmpeg.exe')
+    or FileExists('C:\ProgramData\chocolatey\bin\ffmpeg.exe')
+    or FileExists('C:\Program Files\ffmpeg\bin\ffmpeg.exe')
+    or FileExists('C:\ffmpeg\bin\ffmpeg.exe');
+end;
+
+function HasLibreOffice: Boolean;
+begin
+  Result := OnPath('soffice.exe')
+    or FileExists('C:\Program Files\LibreOffice\program\soffice.exe')
+    or FileExists('C:\Program Files (x86)\LibreOffice\program\soffice.exe')
+    or FileExists(ExpandConstant('{localappdata}\Programs\LibreOffice\program\soffice.exe'));
+end;
+
+function CanInstallFFmpeg: Boolean;
+begin
+  Result := HasWinget and not HasFFmpeg;
+end;
+
+function CanInstallLibreOffice: Boolean;
+begin
+  Result := HasWinget and not HasLibreOffice;
+end;
+
+procedure InstallWithWinget(Id, Name, Extra: string);
+var
+  Code: Integer;
+begin
+  WizardForm.StatusLabel.Caption := 'Downloading and installing ' + Name + '. This can take a few minutes...';
+  WizardForm.ProgressGauge.Style := npbstMarquee;
+  try
+    if not Exec('winget.exe', 'install --id ' + Id + ' -e --silent --disable-interactivity ' +
+        '--accept-package-agreements --accept-source-agreements' + Extra,
+        '', SW_HIDE, ewWaitUntilTerminated, Code) or (Code <> 0) then
+    begin
+      Log(Format('winget install %s failed with code %d.', [Id, Code]));
+      SuppressibleMsgBox(Name + ' could not be installed, but Tumble is fine without it. ' +
+        'You can install it later by running this in a terminal:' + #13#10#13#10 +
+        'winget install ' + Id + #13#10#13#10 +
+        'Then run "tumble menu install" so the menu shows the new formats.',
+        mbInformation, MB_OK, IDOK);
+    end;
+  finally
+    WizardForm.ProgressGauge.Style := npbstNormal;
+  end;
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+var
+  Code: Integer;
+begin
+  if CurStep = ssPostInstall then
+  begin
+    if WizardIsTaskSelected('ffmpeg') then
+      InstallWithWinget('Gyan.FFmpeg.Essentials', 'FFmpeg', ' --scope user');
+    if WizardIsTaskSelected('libreoffice') then
+      InstallWithWinget('TheDocumentFoundation.LibreOffice', 'LibreOffice', '');
+    { After the optional programs, so the menu lists their formats. }
+    WizardForm.StatusLabel.Caption := 'Adding the right-click menu...';
+    Exec(ExpandConstant('{app}\tumble.exe'), 'menu install', '', SW_HIDE, ewWaitUntilTerminated, Code);
   end;
 end;
 

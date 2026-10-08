@@ -12,7 +12,7 @@ Everything happens on your PC, so there is no account, upload, paywall, license 
 
 ## Features
 
-- Right-click menu: shows in the Windows 11 main menu and under "Show more options", and it only lists formats the selected file can be converted to.
+- Right-click menu: on Windows 11 it's under "Show more options", or in the main menu after [one optional step](#windows-11-main-menu), and it only lists formats the selected file can be converted to.
 - Batches: selecting several files starts one job, and the files convert in parallel with one progress dialog (you can cancel it) and one notification.
 - No overwriting: if the output file already exists, Tumble saves it as `photo (1).jpg` instead, and the original file is never changed.
 - Command line: convert folders and subfolders, run parallel jobs, set quality, resize, use presets and get JSON progress output.
@@ -31,10 +31,10 @@ Everything happens on your PC, so there is no account, upload, paywall, license 
 | Slides | PPTX, PPT, ODP | PDF, each other, and images |
 | Spreadsheets | XLSX, XLS, ODS, CSV | PDF, each other, and images |
 
-Images, HEIC and PDF work out of the box. Video and audio need [FFmpeg](https://ffmpeg.org), and documents (Markdown included) need [LibreOffice](https://www.libreoffice.org) 25.8 or newer. Both are free; Tumble uses them if they're installed and hides those formats if they aren't. Release zips can read HEIC files but not write them (see [Development](docs/development.md#heic-writing) to build with HEIC writing). To install FFmpeg and LibreOffice:
+Images, HEIC and PDF work out of the box. Video and audio need [FFmpeg](https://ffmpeg.org), and documents (Markdown included) need [LibreOffice](https://www.libreoffice.org) 25.8 or newer. Both are free; the installer can install them for you, and Tumble hides those formats if they aren't installed. Release zips can read HEIC files but not write them (see [Development](docs/development.md#heic-writing) to build with HEIC writing). To install them yourself:
 
 ```bash
-winget install Gyan.FFmpeg
+winget install Gyan.FFmpeg.Essentials
 ```
 ```bash
 winget install TheDocumentFoundation.LibreOffice
@@ -42,11 +42,22 @@ winget install TheDocumentFoundation.LibreOffice
 
 ## Install
 
-Download `tumble-<version>-setup.exe` from [Releases](../../releases) and run it. It installs Tumble for your user only (no admin rights needed), adds the right-click menu and puts `tumble` on your PATH. On Windows 11 the menu is under "Show more options"; the top-level menu is an optional extra step described in [docs/development.md](docs/development.md#windows-11-menu).
+Download `tumble-<version>-setup.exe` from [Releases](../../releases) and run it. It installs Tumble for your user only (no admin rights needed), adds the right-click menu and puts `tumble` on your PATH. It also offers to install FFmpeg and LibreOffice; both are unchecked unless you tick them.
 
 The installer isn't signed yet, so Windows may show "Windows protected your PC"; click "More info", then "Run anyway".
 
 If you install FFmpeg or LibreOffice later, run `tumble menu install` again to add their formats.
+
+### Windows 11 main menu
+
+On Windows 11, Tumble is under "Show more options" in the right-click menu. To put it in the main menu instead:
+
+1. Open the `main-menu` folder inside Tumble's folder. For the installer, paste `%LOCALAPPDATA%\Programs\Tumble\main-menu` into File Explorer's address bar.
+2. Double-click `Add to main menu.cmd`.
+3. Click Yes when Windows asks for admin rights. This trusts Tumble's certificate, which Windows needs before it shows an app in the main menu. The certificate's private key was deleted after signing, so it can't be used to sign anything else.
+4. If Tumble doesn't show up yet, restart File Explorer (Task Manager > Windows Explorer > Restart).
+
+To undo it, double-click `Remove from main menu.cmd` in the same folder. Uninstalling Tumble also removes it.
 
 ### Uninstall
 
@@ -54,7 +65,7 @@ Uninstall Tumble from Settings > Apps > Installed apps, or from "Uninstall Tumbl
 
 ### Portable zip
 
-If you'd rather not run an installer, download `tumble-<version>-win-x64-lgpl.zip` instead, unzip it somewhere permanent and run `.\tumble.exe menu install` in that folder. To remove it, run `.\tumble.exe menu uninstall` and delete the folder, along with `%APPDATA%\Tumble` and `%LOCALAPPDATA%\Tumble` if they exist.
+If you'd rather not run an installer, download `tumble-<version>-win-x64-lgpl.zip` instead, unzip it somewhere permanent and run `.\tumble.exe menu install` in that folder. To remove it, double-click `Remove from main menu.cmd` if you added the main menu, run `.\tumble.exe menu uninstall` and delete the folder, along with `%APPDATA%\Tumble` and `%LOCALAPPDATA%\Tumble` if they exist.
 
 ## CLI
 

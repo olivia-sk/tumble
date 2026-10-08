@@ -24,21 +24,43 @@
 .PARAMETER AppDir
   Folder with tumblew.exe. Defaults to the one `tumble menu install`
   registered.
+
+.PARAMETER Release
+  With build: package for a release instead of this PC. Writes only
+  tumble-main-menu.msix and tumble.cer to -OutDir. The package is signed
+  with a new certificate whose private key is thrown away after signing, so
+  trusting tumble.cer can never let anything but this package in.
+
+.PARAMETER OutDir
+  With -Release: where to write the package and certificate.
 #>
 param(
     [Parameter(Mandatory)][ValidateSet('build', 'install', 'uninstall')][string]$Action,
-    [string]$AppDir
+    [string]$AppDir,
+    [switch]$Release,
+    [string]$OutDir
 )
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
 $repo = Resolve-Path (Join-Path $PSScriptRoot '..\..\..')
-$out = Join-Path $repo 'dist\explorer-menu'
-$msix = Join-Path $out 'tumble-explorer-menu.msix'
-$cer = Join-Path $out 'tumble-dev.cer'
-$pfx = Join-Path $out 'tumble-dev.pfx'
 $packageName = 'Tumble.ExplorerMenu'
-$publisher = 'CN=Tumble Dev'
+if ($Release) {
+    if (-not $OutDir) { throw '-Release needs -OutDir.' }
+    $out = $OutDir
+    $work = Join-Path ([IO.Path]::GetTempPath()) ("tumble-main-menu-" + [Guid]::NewGuid())
+    $msix = Join-Path $out 'tumble-main-menu.msix'
+    $cer = Join-Path $out 'tumble.cer'
+    $pfx = Join-Path $work 'signing.pfx'
+    $publisher = 'CN=Tumble'
+} else {
+    $out = Join-Path $repo 'dist\explorer-menu'
+    $work = $out
+    $msix = Join-Path $out 'tumble-explorer-menu.msix'
+    $cer = Join-Path $out 'tumble-dev.cer'
+    $pfx = Join-Path $out 'tumble-dev.pfx'
+    $publisher = 'CN=Tumble Dev'
+}
 $clsid = '7c1e2b9a-4f0d-4c55-9a63-2d8e5b1f0a47'   # tumble_explorer::CLSID
 $sdk = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\bin\*\x64\makeappx.exe' |
     Sort-Object FullName -Descending | Select-Object -First 1 | ForEach-Object DirectoryName
@@ -51,7 +73,7 @@ if (-not $AppDir) {
 if (-not (Test-Path (Join-Path $AppDir 'tumblew.exe'))) { throw "tumblew.exe not found in $AppDir" }
 
 function Build {
-    New-Item -ItemType Directory -Force $out | Out-Null
+    New-Item -ItemType Directory -Force $out, $work | Out-Null
     Write-Host '== building tumble_explorer.dll'
     Push-Location (Join-Path $repo 'apps\explorer')
     try {
@@ -62,13 +84,13 @@ function Build {
     Copy-Item (Join-Path $repo 'apps\explorer\target\release\tumble_explorer.dll') $AppDir -Force
 
     Write-Host '== package layout'
-    $pkg = Join-Path $out 'package'
+    $pkg = Join-Path $work 'package'
     if (Test-Path $pkg) { Remove-Item -Recurse -Force $pkg }
     New-Item -ItemType Directory -Force (Join-Path $pkg 'Assets') | Out-Null
     $tumble = Join-Path $AppDir 'tumble.exe'
     $logo = Join-Path $repo 'assets\tumble.png'
     foreach ($l in @(@('Square150x150Logo', 150), @('Square44x44Logo', 44), @('StoreLogo', 50))) {
-        $tmp = Join-Path $out ("{0}.png" -f $l[0])
+        $tmp = Join-Path $work ("{0}.png" -f $l[0])
         Copy-Item $logo $tmp -Force
         & $tumble $tmp --to png --resize $l[1] -o (Join-Path $pkg 'Assets') --overwrite | Out-Null
         Move-Item -Force (Join-Path $pkg ("Assets\{0} (1).png" -f $l[0])) (Join-Path $pkg ("Assets\{0}.png" -f $l[0])) -ErrorAction SilentlyContinue
@@ -138,7 +160,7 @@ $itemTypes
     & (Join-Path $sdk 'makeappx.exe') pack /d $pkg /p $msix /nv /o | Out-Null
     if ($LASTEXITCODE -ne 0) { throw 'makeappx failed' }
 
-    if (-not (Test-Path $pfx)) {
+    if ($Release -or -not (Test-Path $pfx)) {
         Write-Host '== creating a self-signed code-signing certificate (in memory, no store)'
         $rsa = [Security.Cryptography.RSA]::Create(3072)
         $req = [Security.Cryptography.X509Certificates.CertificateRequest]::new(
@@ -150,15 +172,20 @@ $itemTypes
         $eku = [Security.Cryptography.OidCollection]::new()
         [void]$eku.Add([Security.Cryptography.Oid]::new('1.3.6.1.5.5.7.3.3'))   # code signing
         $req.CertificateExtensions.Add([Security.Cryptography.X509Certificates.X509EnhancedKeyUsageExtension]::new($eku, $false))
-        $cert = $req.CreateSelfSigned([DateTimeOffset]::Now.AddDays(-1), [DateTimeOffset]::Now.AddYears(3))
+        $years = if ($Release) { 25 } else { 3 }
+        $cert = $req.CreateSelfSigned([DateTimeOffset]::Now.AddDays(-1), [DateTimeOffset]::Now.AddYears($years))
         [IO.File]::WriteAllBytes($pfx, $cert.Export([Security.Cryptography.X509Certificates.X509ContentType]::Pfx))
         [IO.File]::WriteAllBytes($cer, $cert.Export([Security.Cryptography.X509Certificates.X509ContentType]::Cert))
     }
     Write-Host '== signing'
     & (Join-Path $sdk 'signtool.exe') sign /q /fd SHA256 /f $pfx $msix
     if ($LASTEXITCODE -ne 0) { throw 'signtool failed' }
+    if ($Release) {
+        # The private key only existed for this signature.
+        Remove-Item -Recurse -Force $work
+    }
     Write-Host "== built $msix"
-    Write-Host "   external location: $AppDir"
+    if (-not $Release) { Write-Host "   external location: $AppDir" }
 }
 
 function Test-Admin {

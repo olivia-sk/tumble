@@ -32,6 +32,8 @@ cd apps/explorer && cargo test && cargo clippy --all-targets -- -D warnings
 ./apps/explorer/scripts/explorer-menu.ps1 -Action install    # elevated
 ```
 
+For releases, `package-release.ps1` runs `explorer-menu.ps1 -Action build -Release`, which signs the package with a new certificate and deletes its private key right after, so trusting that certificate can't let anything else in. The scripts users run to add or remove the main menu are in `packaging/main-menu`.
+
 ## How conversions work
 
 Conversions go through one registry of engines. Each engine declares the direct steps it can do, and Tumble finds the shortest route (at most three steps, never through a lossy format when a lossless one works). For example, a DOCX becomes PNGs by going DOCX → PDF (LibreOffice) → PNG (PDFium).

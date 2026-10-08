@@ -26,12 +26,29 @@ Install
 If you move the folder later, run `menu install` again from the new place.
 
 
+Windows 11 main menu
+--------------------
+
+To show Tumble in the main right-click menu instead of under "Show more
+options":
+
+1. Open the main-menu folder and double-click "Add to main menu.cmd".
+2. Click Yes when Windows asks for admin rights. This trusts Tumble's
+   certificate, which Windows needs before it shows an app in the main
+   menu; its private key was deleted after signing, so it can't be used to
+   sign anything else.
+3. If Tumble doesn't show up yet, restart File Explorer (Task Manager >
+   Windows Explorer > Restart).
+
+To undo it, double-click "Remove from main menu.cmd" in the same folder.
+
+
 Video, audio and documents
 --------------------------
 
 Images, HEIC and PDF work out of the box, and two free programs add more:
 
-    Video and audio (MP4, MKV, MP3, FLAC...):   winget install Gyan.FFmpeg
+    Video and audio (MP4, MKV, MP3, FLAC...):   winget install Gyan.FFmpeg.Essentials
     Word, Excel and PowerPoint files:           winget install TheDocumentFoundation.LibreOffice
 
 After installing either one, run `.\tumble.exe menu install` again so the
@@ -66,6 +83,9 @@ Failure log:         %LOCALAPPDATA%\Tumble\logs\
 
 Uninstall
 ---------
+
+If you added the main menu, double-click "Remove from main menu.cmd" in the
+main-menu folder first. Then run:
 
     .\tumble.exe menu uninstall
 

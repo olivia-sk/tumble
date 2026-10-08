@@ -64,6 +64,13 @@ Get-ChildItem vendor -Filter *-LICENSE.txt | Copy-Item -Destination (Join-Path $
 (Get-Content packaging\README.txt -Raw).Replace('{VERSION}', $version) |
     Set-Content (Join-Path $stage 'README.txt') -Encoding utf8
 
+# The optional Windows 11 main menu: tumble_explorer.dll next to tumblew.exe,
+# plus a signed package, its certificate and the scripts that add or remove it.
+Write-Host "== building the Windows 11 main menu package"
+$mainMenu = Join-Path $stage 'main-menu'
+& apps\explorer\scripts\explorer-menu.ps1 -Action build -Release -AppDir $stage -OutDir $mainMenu
+Copy-Item packaging\main-menu\* $mainMenu
+
 # The Rust crates compiled into tumble.exe, with their licences.
 $crates = cargo tree --prefix none --edges normal,build --target x86_64-pc-windows-msvc `
     --format '{p} | {l}' -p tumble-cli |
@@ -117,6 +124,9 @@ try {
             throw "tumble $($c.Args -join ' ') did not write $($c.File)"
         }
         Write-Host ("  ok: tumble " + (($c.Args | ForEach-Object { Split-Path $_ -Leaf }) -join ' '))
+    }
+    foreach ($f in 'tumble_explorer.dll', 'main-menu\tumble-main-menu.msix', 'main-menu\tumble.cer', 'main-menu\Add to main menu.cmd') {
+        if (-not (Test-Path (Join-Path $test "app\$f"))) { throw "zip is missing $f" }
     }
     $engines = & $exe engines
     if (-not ($engines -match 'libheif \[ok\]') -or -not ($engines -match 'pdfium \[ok\]')) {
