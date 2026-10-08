@@ -19,8 +19,13 @@
 .PARAMETER Desktop
   Also build and include the desktop window, tumble-desktop.exe (Phase 6).
   It needs Bun and the WebView2 runtime that ships with Windows 11.
+
+.PARAMETER Installer
+  Also build the installer, dist/tumble-<version>-setup.exe, from the staged
+  folder with Inno Setup (packaging/tumble.iss). Needs Inno Setup 6:
+  winget install JRSoftware.InnoSetup
 #>
-param([switch]$Lgpl, [switch]$Desktop)
+param([switch]$Lgpl, [switch]$Desktop, [switch]$Installer)
 
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
@@ -120,6 +125,19 @@ try {
 }
 finally {
     Remove-Item -Recurse -Force $test -ErrorAction SilentlyContinue
+}
+
+if ($Installer) {
+    Write-Host "== building the installer"
+    $iscc = @(
+        (Join-Path $env:LOCALAPPDATA 'Programs\Inno Setup 6\ISCC.exe'),
+        (Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe')
+    ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+    if (-not $iscc) { throw "Inno Setup 6 not found; run: winget install JRSoftware.InnoSetup" }
+    & $iscc /Q "/DAppVersion=$version" "/DStageDir=$stage" packaging\tumble.iss
+    if ($LASTEXITCODE -ne 0) { throw "installer build failed" }
+    $setup = Join-Path $dist "tumble-$version-setup.exe"
+    Write-Host ("   {0} ({1:N1} MB)" -f $setup, ((Get-Item $setup).Length / 1MB))
 }
 
 $exes = (Get-Item "$stage\tumble.exe").Length + (Get-Item "$stage\tumblew.exe").Length

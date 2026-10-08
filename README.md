@@ -42,17 +42,19 @@ winget install TheDocumentFoundation.LibreOffice
 
 ## Install
 
-1. Download `tumble-<version>-win-x64-lgpl.zip` from [Releases](../../releases) and unzip it somewhere permanent, for example `C:\Users\<you>\Apps\Tumble`. Keep all the files together.
-2. In that folder, run:
-   ```bash
-   .\tumble.exe menu install
-   ```
-   This adds the right-click menu for your user only; no admin rights needed. On Windows 11 it's under "Show more options" until you add the top-level menu below.
-3. Optional, Windows 11 top-level menu: see [apps/explorer](apps/explorer/scripts/explorer-menu.ps1). It needs a one-time certificate step in an elevated terminal.
+Download `tumble-<version>-setup.exe` from [Releases](../../releases) and run it. It installs Tumble for your user only (no admin rights needed), adds the right-click menu and puts `tumble` on your PATH. On Windows 11 the menu is under "Show more options"; the top-level menu is an optional extra step described in [docs/development.md](docs/development.md#windows-11-menu).
 
-If you install FFmpeg or LibreOffice later, run `.\tumble.exe menu install` again to add their formats.
+The installer isn't signed yet, so Windows may show "Windows protected your PC"; click "More info", then "Run anyway".
 
-To remove Tumble: `.\tumble.exe menu uninstall`, then delete the folder. Uninstalling removes only the registry keys Tumble added.
+If you install FFmpeg or LibreOffice later, run `tumble menu install` again to add their formats.
+
+### Uninstall
+
+Uninstall Tumble from Settings > Apps > Installed apps, or from "Uninstall Tumble" in the Start menu. This removes the program, the right-click menu, your settings and presets, logs and the PATH entry, so nothing is left behind.
+
+### Portable zip
+
+If you'd rather not run an installer, download `tumble-<version>-win-x64-lgpl.zip` instead, unzip it somewhere permanent and run `.\tumble.exe menu install` in that folder. To remove it, run `.\tumble.exe menu uninstall` and delete the folder, along with `%APPDATA%\Tumble` and `%LOCALAPPDATA%\Tumble` if they exist.
 
 ## CLI
 
@@ -120,7 +122,7 @@ Needs Windows 11 x64, Rust (MSVC), the Visual Studio C++ build tools, and Bun fo
 ```bash
 ./scripts/fetch-vendor.ps1
 cargo test --workspace
-./scripts/package-release.ps1 -Lgpl -Desktop
+./scripts/package-release.ps1 -Lgpl -Desktop -Installer
 ```
 
 See [docs/development.md](docs/development.md) for building the desktop window and the Windows 11 menu.

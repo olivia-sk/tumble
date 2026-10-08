@@ -8,10 +8,10 @@ Needs Windows 11 x64, Rust (MSVC), the Visual Studio C++ build tools, and Bun fo
 ./scripts/fetch-vendor.ps1
 cargo test --workspace
 cargo clippy --all-targets -- -D warnings
-./scripts/package-release.ps1 -Lgpl -Desktop
+./scripts/package-release.ps1 -Lgpl -Desktop -Installer
 ```
 
-`fetch-vendor.ps1` downloads pinned, hash-checked DLLs into `vendor/`, and `package-release.ps1` builds the release zip in `dist/`. Tests that need FFmpeg, LibreOffice or the vendor DLLs skip with a message when those are missing.
+`fetch-vendor.ps1` downloads pinned, hash-checked DLLs into `vendor/`, and `package-release.ps1` builds the release zip in `dist/`; `-Installer` also builds the installer, which needs [Inno Setup 6](https://jrsoftware.org/isinfo.php). Tests that need FFmpeg, LibreOffice or the vendor DLLs skip with a message when those are missing.
 
 ## Desktop window
 
