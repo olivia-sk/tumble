@@ -89,6 +89,25 @@ pub fn tools() -> Option<&'static (PathBuf, PathBuf)> {
         .as_ref()
 }
 
+/// Whether the FFmpeg found here has an encoder, from `ffmpeg -encoders`,
+/// asked once per process. True when FFmpeg is missing or can't be asked,
+/// so plans stay as they are.
+pub fn has_encoder(name: &str) -> bool {
+    static LIST: OnceLock<Option<String>> = OnceLock::new();
+    let list = LIST.get_or_init(|| {
+        let (ffmpeg, _) = tools()?;
+        let out = tools::command(ffmpeg)
+            .args(["-hide_banner", "-encoders"])
+            .stdin(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .output()
+            .ok()?;
+        Some(String::from_utf8_lossy(&out.stdout).into_owned())
+    });
+    // Lines look like " A....D libvorbis            libvorbis".
+    list.as_ref().is_none_or(|l| l.lines().any(|line| line.split_whitespace().nth(1) == Some(name)))
+}
+
 fn ids(kind: Kind) -> impl Iterator<Item = FormatId> {
     FORMATS.iter().filter(move |f| f.kind == kind).map(|f| f.id)
 }

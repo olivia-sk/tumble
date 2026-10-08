@@ -17,8 +17,12 @@ use std::time::Duration;
 
 /// `file:///C:/Users/Jo%20Doe/...`, as `-env:UserInstallation` wants.
 pub fn file_url(path: &Path) -> String {
-    let mut url = String::from("file:///");
-    for b in path.to_string_lossy().replace('\\', "/").bytes() {
+    let mut url = String::from("file://");
+    let path = path.to_string_lossy().replace('\\', "/");
+    if !path.starts_with('/') {
+        url.push('/');
+    }
+    for b in path.bytes() {
         match b {
             b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'/' | b':' | b'-' | b'_' | b'.' | b'~' => {
                 url.push(b as char)

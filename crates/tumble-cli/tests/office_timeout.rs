@@ -8,12 +8,19 @@ use common::*;
 use std::process::Command;
 use std::time::{Duration, Instant};
 
+/// Running LibreOffice processes (`soffice.bin`; on macOS the app's own
+/// `soffice`).
 fn soffice_bins() -> usize {
-    let out = Command::new("tasklist")
-        .args(["/FI", "IMAGENAME eq soffice.bin", "/FO", "CSV", "/NH"])
-        .output()
-        .unwrap();
-    String::from_utf8_lossy(&out.stdout).lines().filter(|l| l.contains("soffice.bin")).count()
+    if cfg!(windows) {
+        let out = Command::new("tasklist")
+            .args(["/FI", "IMAGENAME eq soffice.bin", "/FO", "CSV", "/NH"])
+            .output()
+            .unwrap();
+        String::from_utf8_lossy(&out.stdout).lines().filter(|l| l.contains("soffice.bin")).count()
+    } else {
+        let out = Command::new("pgrep").args(["-f", "soffice"]).output().unwrap();
+        String::from_utf8_lossy(&out.stdout).lines().count()
+    }
 }
 
 #[test]
