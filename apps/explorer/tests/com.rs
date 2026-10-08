@@ -126,7 +126,11 @@ fn explorer_command_end_to_end() {
         let fields: Vec<&str> = launched.trim_end().split('\t').collect();
         assert_eq!(fields[0], tumblew.display().to_string());
         assert_eq!(&fields[1..5], ["convert", "--to", "webp", "--"]);
-        assert_eq!(&fields[5..], [jpg.display().to_string(), png.display().to_string()]);
+        // Explorer hands over long names even when TEMP uses a short
+        // (8.3) one, as on CI machines, so compare the files themselves.
+        let real = |p: &std::path::Path| std::fs::canonicalize(p).unwrap();
+        let passed: Vec<_> = fields[5..].iter().map(|f| real(std::path::Path::new(f))).collect();
+        assert_eq!(passed, [real(&jpg), real(&png)]);
 
         // An unknown type hides the command.
         let odd = selection(&[file(dir.path(), "notes.xyz")]);

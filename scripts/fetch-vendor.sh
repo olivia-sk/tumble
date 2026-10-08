@@ -189,7 +189,8 @@ else
             && cmake --build "$work/build-$name" --parallel "$jobs" >> "$work/$name.log" 2>&1 \
             && cmake --install "$work/build-$name" >> "$work/$name.log" 2>&1 \
             || {
-                tail -40 "$work/$name.log" >&2
+                grep -A8 -E 'CMake Error|error:' "$work/$name.log" | head -80 >&2
+                tail -20 "$work/$name.log" >&2
                 echo "$name: build failed" >&2
                 exit 1
             }
@@ -201,9 +202,13 @@ else
     with_x265=OFF
     if [ "$lgpl" = 0 ]; then
         tar -xzf "$(download "$x265_url" "$x265_sha")" -C "$work"
+        # x265 3.5 sets CMake policies to old behaviour that CMake 4 no
+        # longer has, and only recognises Apple's clang through one of them.
+        sed -i.orig -e '/cmake_policy(SET CMP0025 OLD)/d' -e '/cmake_policy(SET CMP0054 OLD)/d' \
+            -e 's/STREQUAL "Clang"/MATCHES "Clang"/' "$work/x265_3.5/source/CMakeLists.txt"
         # No assembly: it needs nasm on x86 and does not build on Apple
         # silicon; encoding is slower but still fine for photos.
-        build x265 "$work/x265_3.5/source" -DENABLE_SHARED=ON -DENABLE_CLI=OFF -DENABLE_ASSEMBLY=OFF
+        build x265 "$work/x265_3.5/source" -DENABLE_SHARED=ON -DENABLE_CLI=OFF -DENABLE_ASSEMBLY=OFF -DENABLE_LIBNUMA=OFF
         with_x265=ON
     fi
 
@@ -233,7 +238,7 @@ else
             bad=$(echo "$deps" | grep -vE '^(@rpath/lib(heif|de265|x265)\.|/usr/lib/|/System/)' || true)
         else
             deps=$(readelf -d "$vendor/$f" | sed -n 's/.*(NEEDED).*\[\(.*\)\]/\1/p')
-            bad=$(echo "$deps" | grep -vE '^(lib(heif|de265|x265)\.so|lib(c|m|dl|pthread|rt|gcc_s|stdc\+\+)\.so|ld-linux)' || true)
+            bad=$(echo "$deps" | grep -vE '^(lib(heif|de265|x265)\.so|lib(c|m|mvec|dl|pthread|rt|gcc_s|stdc\+\+)\.so|ld-linux)' || true)
         fi
         if [ -n "$bad" ]; then
             echo "$f links libraries that are not shipped: $bad" >&2
