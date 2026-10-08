@@ -2,15 +2,13 @@
 
 <h1 align="center">Tumble</h1>
 
-<p align="center">A free, local file converter for Windows.<br>Right-click a file and pick a format to convert it to.</p>
+<p align="center">A free, local file converter for Windows.</p>
 
 ---
 
-Tumble adds a convert option to the File Explorer right-click menu; pick a format and the converted file is saved next to the original. If you select several files, they convert as one batch with one progress dialog and one notification at the end.
+Tumble adds a convert option to the File Explorer right-click menu; pick a format and the converted file is saved next to the original.
 
 Everything happens on your PC, so there is no account, upload, paywall, license key, telemetry, update check or network access, and tests check that no network library is compiled in.
-
-There's also a command-line tool (`tumble`) for scripts and batch jobs, and an optional desktop window you can drag files onto.
 
 ## Features
 
@@ -33,7 +31,7 @@ There's also a command-line tool (`tumble`) for scripts and batch jobs, and an o
 | Slides | PPTX, PPT, ODP | PDF, each other, and images |
 | Spreadsheets | XLSX, XLS, ODS, CSV | PDF, each other, and images |
 
-Images, HEIC and PDF work out of the box. Video and audio need [FFmpeg](https://ffmpeg.org), and documents (Markdown included) need [LibreOffice](https://www.libreoffice.org) 25.8 or newer. Both are free; Tumble uses them if they're installed and hides those formats if they aren't. To install them:
+Images, HEIC and PDF work out of the box. Video and audio need [FFmpeg](https://ffmpeg.org), and documents (Markdown included) need [LibreOffice](https://www.libreoffice.org) 25.8 or newer. Both are free; Tumble uses them if they're installed and hides those formats if they aren't. Release zips can read HEIC files but not write them (see [Development](docs/development.md#heic-writing) to build with HEIC writing). To install FFmpeg and LibreOffice:
 
 ```bash
 winget install Gyan.FFmpeg
@@ -44,7 +42,7 @@ winget install TheDocumentFoundation.LibreOffice
 
 ## Install
 
-1. Download `tumble-<version>-win-x64.zip` from [Releases](../../releases) and unzip it somewhere permanent, for example `C:\Users\<you>\Apps\Tumble`. Keep all the files together.
+1. Download `tumble-<version>-win-x64-lgpl.zip` from [Releases](../../releases) and unzip it somewhere permanent, for example `C:\Users\<you>\Apps\Tumble`. Keep all the files together.
 2. In that folder, run:
    ```bash
    .\tumble.exe menu install
@@ -56,7 +54,7 @@ If you install FFmpeg or LibreOffice later, run `.\tumble.exe menu install` agai
 
 To remove Tumble: `.\tumble.exe menu uninstall`, then delete the folder. Uninstalling removes only the registry keys Tumble added.
 
-## Command line
+## CLI
 
 ```bash
 tumble photo.heic --to jpg
@@ -92,23 +90,17 @@ Exit codes: `0` all converted, `1` some failed, `2` bad arguments, `3` no way to
 
 **Settings** (optional): `%APPDATA%\Tumble\config.toml` sets a default output folder, quality, parallel jobs and tool paths. Your own presets go in `%APPDATA%\Tumble\presets.toml`. Failures from the right-click menu are logged in `%LOCALAPPDATA%\Tumble\logs\`.
 
-## How it's built
+## Tech stack
 
 | Part | Technology |
 |---|---|
-| Language | Rust (stable, edition 2024, MSVC) |
-| Images | [`image`](https://crates.io/crates/image), libwebp, [rav1d](https://github.com/memorysafety/rav1d) and rav1e (AVIF), [resvg](https://github.com/linebender/resvg) (SVG), [`exr`](https://crates.io/crates/exr) |
-| HEIC | [libheif](https://github.com/strukturag/libheif) with libde265 and x265, loaded at runtime |
-| PDF | [PDFium](https://pdfium.googlesource.com/pdfium/), loaded at runtime |
-| Video and audio | your installed FFmpeg, run as a subprocess |
-| Documents | your installed LibreOffice, run headless with a throwaway profile |
-| Command line | [clap](https://crates.io/crates/clap), [rayon](https://crates.io/crates/rayon) |
-| Windows integration | [windows-rs](https://github.com/microsoft/windows-rs): registry menu, shell progress dialog, toast notifications, named-pipe batching, `IExplorerCommand` + sparse MSIX for the Windows 11 menu |
-| Desktop window | [Tauri 2](https://tauri.app), TypeScript, Vite, [Bun](https://bun.sh) |
+| Language | Rust |
+| Images, HEIC and PDF | [`image`](https://crates.io/crates/image), [libheif](https://github.com/strukturag/libheif), [PDFium](https://pdfium.googlesource.com/pdfium/) |
+| Video, audio and documents | your installed [FFmpeg](https://ffmpeg.org) and [LibreOffice](https://www.libreoffice.org) |
+| Windows integration | [windows-rs](https://github.com/microsoft/windows-rs) |
+| Desktop window | [Tauri 2](https://tauri.app), TypeScript, [Bun](https://bun.sh) |
 
-Conversions are routed through one registry of engines: each engine declares the direct steps it can do, and Tumble finds the shortest route (at most three steps, never through a lossy format when a lossless one works). A DOCX becomes PNGs by going DOCX → PDF (LibreOffice) → PNG (PDFium).
-
-### Repository layout
+### Structure
 
 | Path | What |
 |---|---|
@@ -121,36 +113,20 @@ Conversions are routed through one registry of engines: each engine declares the
 | `scripts/` | `fetch-vendor.ps1` (pinned, hash-checked DLLs), `package-release.ps1` (release zip) |
 | `docs/verification/` | records of checks done by hand on real hardware |
 
-## Building from source
+## Development
 
 Needs Windows 11 x64, Rust (MSVC), the Visual Studio C++ build tools, and Bun for the desktop window.
 
 ```bash
 ./scripts/fetch-vendor.ps1
 cargo test --workspace
-cargo clippy --all-targets -- -D warnings
-./scripts/package-release.ps1 -Desktop
+./scripts/package-release.ps1 -Lgpl -Desktop
 ```
 
-Tests that need FFmpeg, LibreOffice or the vendor DLLs skip with a message when those are missing.
-
-Desktop window (`apps/desktop`, its own Cargo workspace):
-
-```bash
-cd apps/desktop && bun install && bun run tauri dev
-cd apps/desktop/src-tauri && cargo test && cargo clippy --all-targets -- -D warnings
-```
-
-Windows 11 top-level menu (`apps/explorer`, its own workspace because the DLL runs inside explorer.exe and must never abort on a panic):
-
-```bash
-cd apps/explorer && cargo test && cargo clippy --all-targets -- -D warnings
-./apps/explorer/scripts/explorer-menu.ps1 -Action build
-./apps/explorer/scripts/explorer-menu.ps1 -Action install    # elevated
-```
+See [docs/development.md](docs/development.md) for building the desktop window and the Windows 11 menu.
 
 ## License
 
 Tumble's code is under the [MIT license](LICENSE).
 
-Release zips also contain third-party libraries, each under its own license (see the `licences` folder in the zip): PDFium (BSD-3-Clause), libheif and libde265 (LGPL-3.0), aom (BSD-2-Clause) and the Microsoft Visual C++ runtime. Public releases use the LGPL build of libheif, which reads HEIC but cannot write it. Writing HEIC needs x265, which is GPL-2.0 and covered by HEVC patents in some countries; build it yourself with `./scripts/fetch-vendor.ps1` (without `-Lgpl`) if you want it.
+Release zips include third-party libraries under their own licenses (see the `licences` folder in the zip).
