@@ -6,20 +6,20 @@
 
 ---
 
-Tumble adds a convert option to the File Explorer right-click menu. Pick a format and the converted file is saved next to the original. If you select several files, they convert as one batch with one progress dialog and one notification at the end.
+Tumble adds a convert option to the File Explorer right-click menu; pick a format and the converted file is saved next to the original. If you select several files, they convert as one batch with one progress dialog and one notification at the end.
 
-Everything happens on your PC. There is no account, upload, paywall, license key, telemetry, update check or network access, and tests check that no network library is compiled in.
+Everything happens on your PC, so there is no account, upload, paywall, license key, telemetry, update check or network access, and tests check that no network library is compiled in.
 
 There's also a command-line tool (`tumble`) for scripts and batch jobs, and an optional desktop window you can drag files onto.
 
 ## Features
 
-- Right-click menu: shows in the Windows 11 main menu and under "Show more options". It only lists formats the selected file can be converted to.
-- Batches: selecting several files starts one job. The files convert in parallel with one progress dialog (you can cancel it) and one notification.
-- No overwriting: if the output file already exists, Tumble saves it as `photo (1).jpg` instead. The original file isn't changed.
+- Right-click menu: shows in the Windows 11 main menu and under "Show more options", and it only lists formats the selected file can be converted to.
+- Batches: selecting several files starts one job, and the files convert in parallel with one progress dialog (you can cancel it) and one notification.
+- No overwriting: if the output file already exists, Tumble saves it as `photo (1).jpg` instead, and the original file is never changed.
 - Command line: convert folders and subfolders, run parallel jobs, set quality, resize, use presets and get JSON progress output.
 - Desktop window (optional): drop files or folders in, pick a format, and see the queue.
-- Size: about 10 MB for the menu and command line. Nothing runs in the background.
+- Size: the menu and command line take up about 10 MB, and nothing runs in the background.
 
 ## Formats
 
@@ -33,7 +33,7 @@ There's also a command-line tool (`tumble`) for scripts and batch jobs, and an o
 | Slides | PPTX, PPT, ODP | PDF, each other, and images |
 | Spreadsheets | XLSX, XLS, ODS, CSV | PDF, each other, and images |
 
-Images, HEIC and PDF work out of the box. Video and audio need [FFmpeg](https://ffmpeg.org), and documents (Markdown included) need [LibreOffice](https://www.libreoffice.org) 25.8 or newer. Both are free. Tumble uses them if they're installed and hides those formats if they aren't. To install them:
+Images, HEIC and PDF work out of the box. Video and audio need [FFmpeg](https://ffmpeg.org), and documents (Markdown included) need [LibreOffice](https://www.libreoffice.org) 25.8 or newer. Both are free; Tumble uses them if they're installed and hides those formats if they aren't. To install them:
 
 ```bash
 winget install Gyan.FFmpeg
