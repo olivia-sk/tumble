@@ -206,6 +206,31 @@ begin
   Result := HasWinget and not HasLibreOffice;
 end;
 
+{ Programs this installer installed, one winget id per line. The uninstaller
+  only offers to remove these, never ones the user installed some other way.
+  The file is in the install folder, so it goes when Tumble does. }
+function InstalledListFile: string;
+begin
+  Result := ExpandConstant('{app}\optional-programs.txt');
+end;
+
+procedure RememberInstalled(Id: string);
+begin
+  SaveStringToFile(InstalledListFile, Id + #13#10, True);
+end;
+
+function WasInstalledByTumble(Id: string): Boolean;
+var
+  Lines: TArrayOfString;
+  I: Integer;
+begin
+  Result := False;
+  if LoadStringsFromFile(InstalledListFile, Lines) then
+    for I := 0 to GetArrayLength(Lines) - 1 do
+      if CompareText(Trim(Lines[I]), Id) = 0 then
+        Result := True;
+end;
+
 procedure InstallWithWinget(Id, Name, Extra: string);
 var
   Code: Integer;
@@ -223,7 +248,8 @@ begin
         'winget install ' + Id + #13#10#13#10 +
         'Then run "tumble menu install" so the menu shows the new formats.',
         mbInformation, MB_OK, IDOK);
-    end;
+    end else
+      RememberInstalled(Id);
   finally
     WizardForm.ProgressGauge.Style := npbstNormal;
   end;
@@ -245,8 +271,38 @@ begin
   end;
 end;
 
+{ Asks before removing a program Tumble installed. No is the default, and a
+  silent uninstall keeps it. }
+procedure OfferToRemove(Id, Name, Note: string);
+var
+  Code: Integer;
+begin
+  if not WasInstalledByTumble(Id) then
+    Exit;
+  if SuppressibleMsgBox('Tumble''s installer also installed ' + Name + '. Do you want to remove it too?' + #13#10#13#10 +
+      'Other apps on your PC might use it.' + Note,
+      mbConfirmation, MB_YESNO or MB_DEFBUTTON2, IDNO) <> IDYES then
+    Exit;
+  UninstallProgressForm.StatusLabel.Caption := 'Removing ' + Name + '...';
+  { -1978335212 (0x8A150014): no longer installed, which is fine. }
+  if not Exec('winget.exe', 'uninstall --id ' + Id + ' -e --silent --disable-interactivity --accept-source-agreements',
+      '', SW_HIDE, ewWaitUntilTerminated, Code) or ((Code <> 0) and (Code <> -1978335212)) then
+  begin
+    Log(Format('winget uninstall %s failed with code %d.', [Id, Code]));
+    SuppressibleMsgBox(Name + ' could not be removed. You can remove it from Settings > Apps > Installed apps.',
+      mbInformation, MB_OK, IDOK);
+  end;
+end;
+
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 begin
+  { Before the files go, since the list of installed programs is among them. }
+  if CurUninstallStep = usUninstall then
+  begin
+    OfferToRemove('Gyan.FFmpeg.Essentials', 'FFmpeg', '');
+    OfferToRemove('TheDocumentFoundation.LibreOffice', 'LibreOffice',
+      ' Removing it needs admin rights, so Windows will ask.');
+  end;
   if CurUninstallStep = usPostUninstall then
   begin
     RemoveFromPath(ExpandConstant('{app}'));

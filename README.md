@@ -61,7 +61,7 @@ To undo it, double-click `Remove from main menu.cmd` in the same folder. Uninsta
 
 ### Uninstall
 
-Uninstall Tumble from Settings > Apps > Installed apps, or from "Uninstall Tumble" in the Start menu. This removes the program, the right-click menu, your settings and presets, logs and the PATH entry, so nothing is left behind.
+Uninstall Tumble from Settings > Apps > Installed apps, or from "Uninstall Tumble" in the Start menu. This removes the program, the right-click menu, your settings and presets, logs and the PATH entry, so nothing is left behind. If the installer installed FFmpeg or LibreOffice for you, it asks whether to remove them too (No is the default); programs you installed yourself are never touched.
 
 ### Portable zip
 
