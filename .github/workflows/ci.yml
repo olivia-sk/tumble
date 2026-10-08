@@ -1,0 +1,142 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Rust
+        run: rustup toolchain install
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            .
+            apps/desktop/src-tauri
+
+      - uses: oven-sh/setup-bun@v2
+
+      # FFmpeg and LibreOffice, so the video, audio and document tests run
+      # instead of skipping. Linux uses the LibreOffice PPA, since Markdown
+      # needs LibreOffice 25.8 or newer.
+      - name: Linux packages
+        if: runner.os == 'Linux'
+        run: |
+          sudo add-apt-repository -y ppa:libreoffice/ppa
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg \
+            libreoffice-writer libreoffice-calc libreoffice-impress \
+            cmake libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev \
+            librsvg2-dev libxdo-dev
+          soffice --version
+
+      - name: macOS packages
+        if: runner.os == 'macOS'
+        run: |
+          brew install ffmpeg cmake
+          brew install --cask libreoffice
+          /Applications/LibreOffice.app/Contents/MacOS/soffice --version
+
+      - name: Windows packages
+        if: runner.os == 'Windows'
+        run: choco install ffmpeg -y --no-progress
+
+      - name: Vendor libraries cache
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: vendor-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/fetch-vendor.*') }}
+
+      - name: Vendor libraries (macOS, Linux)
+        if: runner.os != 'Windows'
+        run: scripts/fetch-vendor.sh
+
+      - name: Vendor libraries (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/fetch-vendor.ps1
+
+      - name: Format
+        run: cargo fmt --all --check
+
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Test
+        run: cargo test --workspace --no-fail-fast
+
+      - name: Engines found
+        shell: bash
+        run: cargo run --quiet --bin tumble -- engines
+
+      # The menu files a real install writes, checked by the tools that read
+      # them.
+      - name: Menu files (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          export TUMBLE_FILE_MANAGERS=dolphin,nemo,thunar,nautilus-python
+          cargo run --quiet --bin tumble -- menu install
+          python3 -m py_compile ~/.local/share/nautilus-python/extensions/tumble.py
+          python3 -c "import xml.dom.minidom, os; xml.dom.minidom.parse(os.path.expanduser('~/.config/Thunar/uca.xml'))"
+          cargo run --quiet --bin tumble -- menu status
+          cargo run --quiet --bin tumble -- menu uninstall
+
+      - name: Menu files (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          cargo run --quiet --bin tumble -- menu install
+          wf=~/Library/Services/"Convert with Tumble.workflow"/Contents
+          plutil -lint "$wf/Info.plist" "$wf/document.wflow"
+          cargo run --quiet --bin tumble -- menu status
+
+      # Runs the Quick Action the way Finder would, answering the format
+      # question through TUMBLE_PICK. Automator may not run headless on CI,
+      # so this one only reports.
+      - name: Quick Action run (macOS)
+        if: runner.os == 'macOS'
+        continue-on-error: true
+        run: |
+          dir=$(mktemp -d)
+          printf '<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8"/>' > "$dir/a.svg"
+          cargo run --quiet --bin tumble -- "$dir/a.svg" --to png
+          TUMBLE_NO_UI=1 TUMBLE_PICK=webp automator -i "$dir/a.png" ~/Library/Services/"Convert with Tumble.workflow"
+          ls -la "$dir"
+          test -f "$dir/a.webp"
+
+      - name: Remove the menu (macOS)
+        if: runner.os == 'macOS'
+        run: cargo run --quiet --bin tumble -- menu uninstall
+
+      - name: Desktop window
+        shell: bash
+        run: |
+          cd apps/desktop
+          bun install --frozen-lockfile
+          bun run build
+          cd src-tauri
+          cargo clippy --all-targets -- -D warnings
+          cargo test
+
+      - name: Windows 11 menu
+        if: runner.os == 'Windows'
+        run: |
+          cd apps/explorer
+          cargo clippy --all-targets -- -D warnings
+          cargo test

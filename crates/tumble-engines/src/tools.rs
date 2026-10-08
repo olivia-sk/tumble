@@ -2,7 +2,7 @@
 //!
 //! 1. environment variable, e.g. `TUMBLE_FFMPEG`
 //! 2. `[tools]` in config.toml
-//! 3. next to tumble.exe
+//! 3. next to tumble
 //! 4. PATH (absolute entries only; never the current folder)
 //! 5. known install folders
 //!
@@ -12,13 +12,18 @@ use std::path::{Path, PathBuf};
 use tumble_core::brand;
 
 pub struct Tool {
-    /// File name, e.g. `ffmpeg.exe`.
-    pub exe: &'static str,
+    /// Program name without `.exe`, e.g. `ffmpeg`.
+    pub name: &'static str,
     /// Environment variable suffix, e.g. `FFMPEG` for `TUMBLE_FFMPEG`.
     pub env: &'static str,
 }
 
 impl Tool {
+    /// File name on this OS: `ffmpeg.exe` on Windows, `ffmpeg` elsewhere.
+    pub fn file_name(&self) -> String {
+        format!("{}{}", self.name, std::env::consts::EXE_SUFFIX)
+    }
+
     pub fn find(&self, configured: Option<&Path>, known: &[PathBuf]) -> Option<PathBuf> {
         let file = |p: PathBuf| p.is_file().then_some(p);
         if let Some(p) =
@@ -37,13 +42,20 @@ impl Tool {
             .into_iter()
             .chain(path_dirs)
             .chain(known.iter().cloned())
-            .map(|d| d.join(self.exe))
+            .map(|d| d.join(self.file_name()))
             .find(|p| p.is_file())
     }
 }
 
+/// The home folder, on macOS and Linux.
+#[cfg(not(windows))]
+pub fn home() -> Option<PathBuf> {
+    std::env::var_os("HOME").map(PathBuf::from).filter(|p| p.is_absolute())
+}
+
 /// Subfolders of `parent` whose names start with `prefix`, then `rest`
 /// appended to each: a tiny glob for versioned install folders.
+#[cfg_attr(target_os = "macos", allow(dead_code))]
 pub fn glob_dirs(parent: &Path, prefix: &str, rest: &[&str]) -> Vec<PathBuf> {
     let Ok(entries) = std::fs::read_dir(parent) else { return Vec::new() };
     let mut found: Vec<PathBuf> = entries
@@ -57,6 +69,7 @@ pub fn glob_dirs(parent: &Path, prefix: &str, rest: &[&str]) -> Vec<PathBuf> {
 }
 
 /// Runs a tool with no console window of its own.
+#[cfg_attr(not(windows), allow(unused_mut))]
 pub fn command(exe: &Path) -> std::process::Command {
     let mut command = std::process::Command::new(exe);
     #[cfg(windows)]

@@ -58,6 +58,17 @@ pub fn menu_targets(registry: &Registry, format: &Format) -> Vec<FormatId> {
         .collect()
 }
 
+/// The menu targets every one of `formats` offers, in the first one's
+/// order. What a menu shows for several selected files.
+pub fn common_menu_targets(registry: &Registry, formats: &[&Format]) -> Vec<FormatId> {
+    let Some((first, rest)) = formats.split_first() else { return Vec::new() };
+    let others: Vec<Vec<FormatId>> = rest.iter().map(|f| menu_targets(registry, f)).collect();
+    menu_targets(registry, first)
+        .into_iter()
+        .filter(|t| others.iter().all(|o| o.contains(t)))
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

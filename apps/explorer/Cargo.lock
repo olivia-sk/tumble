@@ -254,6 +254,7 @@ dependencies = [
 name = "tumble-shell"
 version = "1.0.0"
 dependencies = [
+ "libc",
  "tumble-core",
  "windows",
 ]

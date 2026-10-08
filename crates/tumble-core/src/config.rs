@@ -1,4 +1,5 @@
-//! The optional settings file (PRD section 12), `%APPDATA%\Tumble\config.toml`:
+//! The optional settings file (PRD section 12), `config.toml` in
+//! `config_dir()` (`%APPDATA%\Tumble\config.toml` on Windows):
 //!
 //! ```toml
 //! output = "same-folder"   # or a fixed folder path
@@ -64,14 +65,54 @@ impl Config {
     }
 }
 
-/// `%APPDATA%\Tumble`, or `$XDG_CONFIG_HOME/Tumble` / `~/.config/Tumble`
-/// elsewhere.
+/// An environment variable holding an absolute path, if set.
+fn env_dir(name: &str) -> Option<PathBuf> {
+    std::env::var_os(name).map(PathBuf::from).filter(|p| p.is_absolute())
+}
+
+#[cfg(not(windows))]
+fn home() -> Option<PathBuf> {
+    env_dir("HOME")
+}
+
+/// Settings and presets: `%APPDATA%\Tumble` on Windows,
+/// `~/Library/Application Support/Tumble` on macOS, and
+/// `$XDG_CONFIG_HOME/tumble` (`~/.config/tumble`) on Linux.
 pub fn config_dir() -> Option<PathBuf> {
-    let base = std::env::var_os("APPDATA")
-        .or_else(|| std::env::var_os("XDG_CONFIG_HOME"))
-        .map(PathBuf::from)
-        .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".config")))?;
-    Some(base.join(brand::DATA_DIR))
+    #[cfg(windows)]
+    return Some(env_dir("APPDATA")?.join(brand::DATA_DIR));
+    #[cfg(target_os = "macos")]
+    return Some(home()?.join("Library/Application Support").join(brand::DATA_DIR));
+    #[cfg(not(any(windows, target_os = "macos")))]
+    return Some(
+        env_dir("XDG_CONFIG_HOME").or_else(|| Some(home()?.join(".config")))?.join(brand::UNIX_DIR),
+    );
+}
+
+/// Machine-local data (the LibreOffice profile template, the menu's icon and
+/// install record): `%LOCALAPPDATA%\Tumble` on Windows, the same folder as
+/// `config_dir()` on macOS, and `$XDG_DATA_HOME/tumble`
+/// (`~/.local/share/tumble`) on Linux. Not created here.
+pub fn data_dir() -> Option<PathBuf> {
+    #[cfg(windows)]
+    return Some(env_dir("LOCALAPPDATA")?.join(brand::DATA_DIR));
+    #[cfg(target_os = "macos")]
+    return config_dir();
+    #[cfg(not(any(windows, target_os = "macos")))]
+    return Some(
+        env_dir("XDG_DATA_HOME")
+            .or_else(|| Some(home()?.join(".local/share")))?
+            .join(brand::UNIX_DIR),
+    );
+}
+
+/// Where right-click failures are logged: `logs` under `data_dir()`, or
+/// `~/Library/Logs/Tumble` on macOS. Not created here.
+pub fn log_dir() -> Option<PathBuf> {
+    #[cfg(target_os = "macos")]
+    return Some(home()?.join("Library/Logs").join(brand::DATA_DIR));
+    #[cfg(not(target_os = "macos"))]
+    return Some(data_dir()?.join("logs"));
 }
 
 /// The settings for this process, read once. Problems with the file are

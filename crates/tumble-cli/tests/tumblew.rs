@@ -6,11 +6,10 @@ use common::*;
 use std::process::Command;
 
 fn tumblew(args: &[&std::ffi::OsStr]) -> Option<i32> {
-    // Menu mode logs failures; keep them out of the real %LOCALAPPDATA%.
+    // Menu mode logs failures; keep them out of the real data folder.
     let logs = tempfile::tempdir().unwrap();
-    Command::new(env!("CARGO_BIN_EXE_tumblew"))
+    isolate(&mut Command::new(env!("CARGO_BIN_EXE_tumblew")), logs.path())
         .env("TUMBLE_NO_UI", "1")
-        .env("LOCALAPPDATA", logs.path())
         .args(args)
         .status()
         .expect("run tumblew")

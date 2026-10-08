@@ -1,13 +1,16 @@
 //! Menu mode: what runs when a right-click menu item is chosen
-//! (`tumblew.exe convert --to <fmt> "<file>"`, which starts
-//! `tumble.exe convert ...` with no window).
+//! (`tumble convert --to <fmt> <files>`; on Windows through
+//! `tumblew.exe`, which starts `tumble.exe convert ...` with no window).
 //!
 //! 1. Every process for the same target joins one batch (`instance`).
-//! 2. The leader converts the batch with no console output; the shell
-//!    progress dialog appears if it takes longer than about a second, and
-//!    its Cancel button stops the job.
-//! 3. One toast sums it up; clicking it opens the output folder.
-//! 4. Failures go to `%LOCALAPPDATA%\Tumble\logs\<date>.log`.
+//! 2. The leader converts the batch with no console output; the progress
+//!    dialog appears if it takes longer than about a second, and its Cancel
+//!    button stops the job. SIGTERM (the stop button of a running macOS
+//!    Quick Action) cancels it too.
+//! 3. One notification sums it up; clicking it opens the output folder
+//!    where the system allows that.
+//! 4. Failures go to `<date>.log` in `tumble_core::config::log_dir()`
+//!    (`%LOCALAPPDATA%\Tumble\logs` on Windows).
 //!
 //! `TUMBLE_NO_UI=1` skips the dialog and the toast (used by tests).
 
@@ -28,7 +31,7 @@ const BATCH_WINDOW: Duration = Duration::from_millis(500);
 /// The progress dialog appears only for jobs longer than this.
 const DIALOG_DELAY: Duration = Duration::from_secs(1);
 
-fn ui_enabled() -> bool {
+pub(super) fn ui_enabled() -> bool {
     std::env::var_os(brand::env_var("NO_UI")).is_none_or(|v| v.is_empty() || v == "0")
 }
 
@@ -87,6 +90,11 @@ pub fn run_menu(args: ConvertArgs) -> u8 {
     let observer = DialogObserver(state.clone());
     let reporter = Reporter::new(Mode::Silent, Some(&observer));
     let cancel = CancelToken::new();
+    #[cfg(unix)]
+    {
+        let cancel = cancel.clone();
+        let _ = ctrlc::set_handler(move || cancel.cancel());
+    }
 
     let ui = ui_enabled();
     let dialog = ui.then(|| {
@@ -160,13 +168,13 @@ fn toast(
     // With nothing converted, the click opens the log folder instead.
     let open = folder.or_else(|| log_file.and_then(Path::parent).map(Path::to_path_buf));
     if let Err(e) = tumble_shell::toast::show(&title, &detail, open.as_deref()) {
-        log(&[format!("could not show the toast: {e}")]);
+        log(&[format!("could not show the notification: {e}")]);
     }
 }
 
 /// Appends timestamped lines to today's log; returns its path.
-fn log(lines: &[String]) -> Option<PathBuf> {
-    let dir = tumble_shell::local_data_dir()?.join("logs");
+pub(super) fn log(lines: &[String]) -> Option<PathBuf> {
+    let dir = tumble_core::config::log_dir()?;
     std::fs::create_dir_all(&dir).ok()?;
     let (y, mo, d, h, mi, s) = tumble_shell::local_now();
     let path = dir.join(format!("{y:04}-{mo:02}-{d:02}.log"));

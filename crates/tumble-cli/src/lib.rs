@@ -1,4 +1,4 @@
-//! Shared entry point for `tumble.exe` and `tumblew.exe`.
+//! Shared entry point for `tumble` and, on Windows, `tumblew.exe`.
 
 mod args;
 mod commands;
@@ -25,14 +25,12 @@ where
 
     let code = match cli.command {
         Some(Command::Formats { json }) => commands::formats::run(json),
-        Some(Command::Targets { file, menu, json }) => commands::targets::run(&file, menu, json),
+        Some(Command::Targets { files, menu, json }) => commands::targets::run(&files, menu, json),
         Some(Command::Engines { json }) => commands::engines::run(json),
         Some(Command::Presets) => commands::presets::run(),
         Some(Command::Menu { action }) => commands::menu::run(&action),
-        #[cfg(windows)]
         Some(Command::Convert(args)) => commands::convert::run_menu(args),
-        #[cfg(not(windows))]
-        Some(Command::Convert(args)) => commands::convert::run(args),
+        Some(Command::Pick { files }) => commands::convert::run_pick(files),
         None => commands::convert::run(cli.convert),
     };
     ExitCode::from(code)

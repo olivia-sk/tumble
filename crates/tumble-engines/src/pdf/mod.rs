@@ -1,7 +1,7 @@
 //! The PDFium engine: PDF to every image output, one image per page.
 //! A one-page PDF gives `report.png`; longer ones give `report-p001.png`,
-//! `report-p002.png`, ... (PRD section 7). pdfium.dll is loaded at runtime
-//! from next to tumble.exe.
+//! `report-p002.png`, ... (PRD section 7). PDFium is loaded at runtime
+//! from next to tumble.
 
 mod ffi;
 mod render;
@@ -26,7 +26,7 @@ impl PdfEngine {
         if !Self::present() {
             return (
                 false,
-                format!("{} not found next to tumble.exe (run scripts/fetch-vendor.ps1)", ffi::DLL),
+                format!("{} not found {} (run {})", ffi::DLL, native::WHERE, native::FETCH),
             );
         }
         match ffi::lock() {
@@ -105,8 +105,9 @@ mod tests {
 
     #[test]
     fn page_names() {
-        let out = Path::new(r"C:\x\report.png");
-        assert_eq!(page_path(out, 1, 3), Path::new(r"C:\x\report-p001.png"));
-        assert_eq!(page_path(out, 12, 1500), Path::new(r"C:\x\report-p0012.png"));
+        let dir = std::env::temp_dir();
+        let out = dir.join("report.png");
+        assert_eq!(page_path(&out, 1, 3), dir.join("report-p001.png"));
+        assert_eq!(page_path(&out, 12, 1500), dir.join("report-p0012.png"));
     }
 }

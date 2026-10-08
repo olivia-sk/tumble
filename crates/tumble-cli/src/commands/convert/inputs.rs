@@ -10,7 +10,7 @@
 use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
-use tumble_core::job::STAGING_PREFIX;
+use tumble_core::job::{STAGING_PREFIX, path_key};
 use tumble_core::{Format, FormatId, Kind, Registry};
 
 pub struct Planned {
@@ -88,7 +88,7 @@ fn same_kind(from: Kind, to: Kind) -> bool {
 }
 
 fn push(plan: &mut Plan, seen: &mut HashSet<String>, input: PathBuf, out_dir: PathBuf) {
-    if seen.insert(input.to_string_lossy().to_lowercase()) {
+    if seen.insert(path_key(&input)) {
         plan.jobs.push(Planned { input, out_dir });
     }
 }

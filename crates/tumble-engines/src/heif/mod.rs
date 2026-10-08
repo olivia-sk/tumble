@@ -1,6 +1,6 @@
 //! The libheif engine: HEIC to every image output, and every image input
-//! to HEIC when the encoder (x265) is present. heif.dll and its
-//! dependencies are loaded at runtime from next to tumble.exe.
+//! to HEIC when the encoder (x265) is present. libheif and its
+//! dependencies are loaded at runtime from next to tumble.
 
 pub mod codec;
 mod ffi;
@@ -36,8 +36,10 @@ impl HeifEngine {
             return (
                 false,
                 format!(
-                    "{} not found next to tumble.exe (run scripts/fetch-vendor.ps1)",
-                    ffi::REQUIRED.join(", ")
+                    "{} not found {} (run {})",
+                    ffi::REQUIRED.join(", "),
+                    native::WHERE,
+                    native::FETCH
                 ),
             );
         }

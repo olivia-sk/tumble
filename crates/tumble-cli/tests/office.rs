@@ -1,4 +1,4 @@
-//! Documents through `tumble.exe`. Skips when LibreOffice is missing.
+//! Documents through `tumble`. Skips when LibreOffice is missing.
 
 mod common;
 
@@ -14,7 +14,7 @@ fn skip() -> bool {
 
 #[test]
 fn document_to_numbered_pages() {
-    if skip() || !vendor_dll("pdfium.dll") {
+    if skip() || !vendor_dll(PDFIUM) {
         return;
     }
     let dir = tempfile::tempdir().unwrap();

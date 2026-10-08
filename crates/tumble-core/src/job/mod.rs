@@ -12,7 +12,7 @@ mod naming;
 mod scratch;
 
 pub use error::JobError;
-pub use naming::OutputNamer;
+pub use naming::{OutputNamer, key as path_key};
 pub use scratch::ScratchDir;
 
 use crate::engine::{CancelToken, ConvertOptions, Progress};

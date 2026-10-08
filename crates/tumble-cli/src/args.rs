@@ -8,7 +8,7 @@ use tumble_core::brand;
 #[command(
     name = brand::CLI_BIN,
     version,
-    about = "Convert files locally. Nothing leaves this PC.",
+    about = "Convert files locally. Nothing leaves this computer.",
     after_help = "To convert a file whose name starts with a dash, put it after --:\n  tumble --to png -- -draft.jpg",
     args_conflicts_with_subcommands = true,
     subcommand_negates_reqs = true
@@ -28,9 +28,11 @@ pub enum Command {
         #[arg(long)]
         json: bool,
     },
-    /// List the formats a file can be converted to.
+    /// List the formats a file (or every one of several files) can be
+    /// converted to.
     Targets {
-        file: PathBuf,
+        #[arg(required = true)]
+        files: Vec<PathBuf>,
         /// Only the short list shown in the right-click menu.
         #[arg(long)]
         menu: bool,
@@ -44,7 +46,7 @@ pub enum Command {
     },
     /// List conversion presets.
     Presets,
-    /// Manage the Explorer right-click menu.
+    /// Manage the right-click menu.
     Menu {
         #[command(subcommand)]
         action: MenuAction,
@@ -52,6 +54,13 @@ pub enum Command {
     /// Convert files (the form the right-click menu uses).
     #[command(hide = true)]
     Convert(ConvertArgs),
+    /// Ask which format to convert files to, then convert them (the macOS
+    /// Quick Action).
+    #[command(hide = true)]
+    Pick {
+        #[arg(required = true)]
+        files: Vec<PathBuf>,
+    },
 }
 
 #[derive(Subcommand)]

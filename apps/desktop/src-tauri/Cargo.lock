@@ -5071,6 +5071,7 @@ dependencies = [
  "avif-parse",
  "exr",
  "image",
+ "libc",
  "libloading 0.8.9",
  "rav1d",
  "resvg",

@@ -1,5 +1,5 @@
 //! Named presets (PRD section 10): a built-in table, plus the user's own in
-//! `%APPDATA%\Tumble\presets.toml`, which may add presets or replace
+//! `presets.toml` next to config.toml, which may add presets or replace
 //! built-in ones by name.
 //!
 //! ```toml
