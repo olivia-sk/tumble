@@ -1784,7 +1784,7 @@ checksum = "06bdbd8cfc056b8d2e2e85f29b56a3bdbecb527cef81eb39e3e7b98af4652770"
 
 [[package]]
 name = "tumble-cli"
-version = "0.2.0"
+version = "1.0.0"
 dependencies = [
  "clap",
  "ctrlc",
@@ -1801,7 +1801,7 @@ dependencies = [
 
 [[package]]
 name = "tumble-core"
-version = "0.2.0"
+version = "1.0.0"
 dependencies = [
  "serde",
  "toml",
@@ -1809,7 +1809,7 @@ dependencies = [
 
 [[package]]
 name = "tumble-engines"
-version = "0.2.0"
+version = "1.0.0"
 dependencies = [
  "avif-parse",
  "exr",
@@ -1826,7 +1826,7 @@ dependencies = [
 
 [[package]]
 name = "tumble-shell"
-version = "0.2.0"
+version = "1.0.0"
 dependencies = [
  "tumble-core",
  "windows",

@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/tumble-core", "crates/tumble-engines", "crates/tumble-shell", "crates/tumble-cli"]
 
 [workspace.package]
-version = "0.2.0"
+version = "1.0.0"
 edition = "2024"
 publish = false
 license = "MIT"
