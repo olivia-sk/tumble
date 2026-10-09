@@ -36,10 +36,19 @@ fn timeout_kills_libreoffice() {
     let warm = tumble([txt.as_os_str(), "--to".as_ref(), "odt".as_ref()]);
     assert!(warm.status.success(), "{}", stderr(&warm));
 
+    // Big enough that no machine converts it within the limit.
+    std::fs::write(
+        &txt,
+        "A line of text to lay out across many pages.
+"
+        .repeat(200_000),
+    )
+    .unwrap();
+
     let before = soffice_bins();
     let start = Instant::now();
     let out = Command::new(env!("CARGO_BIN_EXE_tumble"))
-        .env("TUMBLE_SOFFICE_TIMEOUT", "0.3")
+        .env("TUMBLE_SOFFICE_TIMEOUT", "0.2")
         .args([txt.as_os_str(), "--to".as_ref(), "pdf".as_ref()])
         .output()
         .unwrap();

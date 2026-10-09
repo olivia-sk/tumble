@@ -107,11 +107,13 @@ jobs:
           cargo run --quiet --bin tumble -- menu status
 
       # Runs the Quick Action the way Finder would, answering the format
-      # question through TUMBLE_PICK. Automator may not run headless on CI,
-      # so this one only reports.
+      # question through TUMBLE_PICK. Automator can hang on a headless
+      # machine (waiting for a permission prompt), so this one only reports
+      # and gives up after two minutes.
       - name: Quick Action run (macOS)
         if: runner.os == 'macOS'
         continue-on-error: true
+        timeout-minutes: 2
         run: |
           dir=$(mktemp -d)
           printf '<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8"/>' > "$dir/a.svg"
