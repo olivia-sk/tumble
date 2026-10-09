@@ -102,7 +102,49 @@ fn cancel(job: u32, session: State<'_, Session>) {
     }
 }
 
+/// On macOS and Linux, Tumble can be installed by dragging the app out of
+/// the .dmg or with the .deb, and neither can run a setup step. So the
+/// window adds the right-click menu itself (`tumble menu install`, with the
+/// `tumble` next to it) when the menu isn't set up for this copy yet. A menu
+/// removed on purpose with `tumble menu uninstall` is left removed.
+#[cfg(unix)]
+fn ensure_menu() {
+    use std::process::{Command, Stdio};
+    std::thread::spawn(|| {
+        let Some(tumble) = std::env::current_exe()
+            .ok()
+            .and_then(|e| std::fs::canonicalize(e).ok())
+            .map(|e| e.with_file_name("tumble"))
+            .filter(|t| t.is_file())
+        else {
+            return;
+        };
+        let removed =
+            tumble_core::config::data_dir().is_some_and(|d| d.join("menu-removed").exists());
+        if removed {
+            return;
+        }
+        let Ok(status) =
+            Command::new(&tumble).args(["menu", "status"]).stdin(Stdio::null()).output()
+        else {
+            return;
+        };
+        let runs = format!("Runs: {}", tumble.display());
+        if String::from_utf8_lossy(&status.stdout).lines().any(|l| l == runs) {
+            return;
+        }
+        let _ = Command::new(&tumble)
+            .args(["menu", "install"])
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
+    });
+}
+
 pub fn run() {
+    #[cfg(unix)]
+    ensure_menu();
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())

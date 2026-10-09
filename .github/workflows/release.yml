@@ -47,12 +47,26 @@ jobs:
       - name: Package
         run: scripts/package-release.sh --lgpl --desktop
 
+      # Installs the .deb the way a user would, so missing or wrong
+      # dependencies show up here.
+      - name: Install the .deb
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get install -y ./dist/*.deb
+          tumble engines
+          test -x /usr/lib/tumble/tumble-desktop
+          test -f /usr/share/applications/tumble.desktop
+          sudo apt-get remove -y tumble
+          test ! -e /usr/bin/tumble
+
       - uses: actions/upload-artifact@v4
         with:
           name: tumble-${{ matrix.os }}
           path: |
             dist/*.tar.gz
             dist/*.zip
+            dist/*.dmg
+            dist/*.deb
           if-no-files-found: error
 
   publish:
