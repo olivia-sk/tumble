@@ -59,7 +59,7 @@ jobs:
         run: choco install ffmpeg -y --no-progress
 
       - name: Vendor libraries cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: vendor
           key: vendor-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/fetch-vendor.*') }}
