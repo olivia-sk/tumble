@@ -12,7 +12,7 @@ Everything happens on your computer, so there is no account, upload, paywall, li
 
 ## Features
 
-- Right-click menu: it only lists formats the selected files can be converted to. On Windows 11 it's under "Show more options", or in the main menu after [one optional step](#windows-11-main-menu); on macOS it's under Quick Actions > Convert with Tumble, which asks for the format in a short list.
+- Right-click menu: it only lists formats the selected files can be converted to. On Windows 11 it's under "Show more options", or in the main menu after [one optional step](#windows-11-main-menu); on macOS it's under Quick Actions > Convert with Tumble, which asks for the format in a short list; on Linux it's in Dolphin, GNOME Files, Nemo and Thunar.
 - Batches: selecting several files starts one job, and the files convert in parallel with one progress dialog (you can cancel it) and one notification. On macOS the progress and its stop button are in the menu bar, where Finder shows running Quick Actions.
 - No overwriting: if the output file already exists, Tumble saves it as `photo (1).jpg` instead, and the original file is never changed.
 - Command line: convert folders and subfolders, run parallel jobs, set quality, resize, use presets and get JSON progress output.
@@ -53,9 +53,20 @@ On Linux, install `ffmpeg` with your package manager, and LibreOffice 25.8 or ne
 
 ## Install
 
+Download the file for your system from [Releases](../../releases):
+
+| System | Installer | Without an installer | Needs |
+|---|---|---|---|
+| Windows | `tumble-<version>-setup.exe` | `tumble-<version>-win-x64-lgpl.zip` | Windows 10 (1809) or 11, x64 |
+| macOS, Apple silicon (M1 and later) | `tumble-<version>-macos-arm64.dmg` | `tumble-<version>-macos-arm64-lgpl.zip` | macOS 11 or newer |
+| macOS, Intel | `tumble-<version>-macos-x64.dmg` | `tumble-<version>-macos-x64-lgpl.zip` | macOS 11 or newer |
+| Linux | `tumble-<version>-linux-x64.deb` (Ubuntu, Debian, Linux Mint) | `tumble-<version>-linux-x64-lgpl.tar.gz` (any distribution) | x64, Ubuntu 22.04 or Debian 12 or newer (glibc 2.35) |
+
+To check which Mac you have, open the Apple menu > About This Mac: "Chip: Apple M…" means Apple silicon, "Processor: Intel" means Intel.
+
 ### Windows
 
-Download `tumble-<version>-setup.exe` from [Releases](../../releases) and run it. It installs Tumble for your user only (no admin rights needed), adds the right-click menu and puts `tumble` on your PATH. It also offers to install FFmpeg and LibreOffice; both are unchecked unless you tick them.
+Download `tumble-<version>-setup.exe` and run it. It installs Tumble for your user only (no admin rights needed), adds the right-click menu and puts `tumble` on your PATH. It also offers to install FFmpeg and LibreOffice; both are unchecked unless you tick them.
 
 The installer isn't signed yet, so Windows may show "Windows protected your PC"; click "More info", then "Run anyway".
 
@@ -82,38 +93,95 @@ If you'd rather not run an installer, download `tumble-<version>-win-x64-lgpl.zi
 
 ### macOS
 
-Download `tumble-<version>-macos-arm64.dmg` (Apple silicon) or `tumble-<version>-macos-x64.dmg` (Intel) from [Releases](../../releases), open it and drag Tumble into Applications. Then open Tumble once: it adds the right-click menu.
+1. Download the `.dmg` for your Mac (`arm64` for Apple silicon, `x64` for Intel) and open it.
+2. Drag Tumble onto the Applications folder in the window that opens.
+3. Open Applications, right-click Tumble and choose Open, then click Open again. Tumble isn't signed by Apple yet, so the first time macOS says it can't check it for malware; after this once, it opens normally. On recent macOS versions, if there's no Open button, go to System Settings > Privacy & Security and click "Open Anyway" next to the message about Tumble.
+4. When the Tumble window opens, the right-click menu is added. You can close the window; the menu stays.
 
-Tumble isn't signed by Apple yet, so the first time, macOS says it can't check it for malware. Right-click Tumble in Applications and choose Open, then Open again; after that it opens normally.
+To convert, select one or more files in Finder, right-click and choose Quick Actions > Convert with Tumble, then pick a format from the list. The list only shows formats every selected file can become. While a job runs, a gear in the menu bar shows its progress, and its stop button cancels it. When it ends, a notification says how it went; unlike on Windows and Linux, clicking it doesn't open the folder, since macOS doesn't allow that for this kind of notification.
 
-To convert, select files in Finder, right-click and choose Quick Actions > Convert with Tumble, then pick a format. When a job ends a notification says how it went, but unlike on Windows and Linux, clicking it doesn't open the folder, since macOS doesn't allow that for this kind of notification. The command line tool is at `/Applications/Tumble.app/Contents/MacOS/tumble`.
+If Convert with Tumble isn't under Quick Actions, choose Quick Actions > Customize (or go to System Settings > Keyboard > Keyboard Shortcuts > Services > Files and Folders) and tick it.
 
-To uninstall, run `/Applications/Tumble.app/Contents/MacOS/tumble menu uninstall` in Terminal, then drag Tumble to the Trash.
+The `.dmg` doesn't put `tumble` on your PATH. To use the command line, either run it by its full path, `/Applications/Tumble.app/Contents/MacOS/tumble`, or link it into a folder on your PATH:
 
-If you'd rather use a terminal, download `tumble-<version>-macos-<arch>-lgpl.zip` instead, unzip it and run `sh install.sh` in that folder. It installs Tumble in `~/Applications`, puts `tumble` on your PATH and adds the menu; to remove it all, run `sh ~/Library/Application\ Support/Tumble/uninstall.sh`.
+```bash
+sudo ln -sf /Applications/Tumble.app/Contents/MacOS/tumble /usr/local/bin/tumble
+```
+
+If you install FFmpeg or LibreOffice later, run `tumble menu install` again (or `/Applications/Tumble.app/Contents/MacOS/tumble menu install`) to add their formats.
+
+#### Uninstall
+
+Run this in Terminal to remove the right-click menu, then drag Tumble from Applications to the Trash:
+
+```bash
+/Applications/Tumble.app/Contents/MacOS/tumble menu uninstall
+```
+
+To also remove your settings, presets and logs, delete `~/Library/Application Support/Tumble` and `~/Library/Logs/Tumble`, and `/usr/local/bin/tumble` if you linked it.
+
+#### Without the .dmg
+
+If you'd rather use a terminal, download `tumble-<version>-macos-<arch>-lgpl.zip`, unzip it, open a terminal in the unzipped folder and run:
+
+```bash
+sh install.sh
+```
+
+It installs Tumble for your user only (no admin rights needed) in `~/Applications/Tumble.app`, puts `tumble` on your PATH (in `~/.local/bin`) and adds the right-click menu. To remove all of it, including your settings, presets and logs, run:
+
+```bash
+sh ~/Library/Application\ Support/Tumble/uninstall.sh
+```
 
 ### Linux
 
-On Ubuntu, Debian, Linux Mint and other distributions that use `.deb` packages, download `tumble-<version>-linux-x64.deb` from [Releases](../../releases) and double-click it, or install it in a terminal:
+1. Download `tumble-<version>-linux-x64.deb`.
+2. Double-click it to open it in your software installer and click Install, or install it in a terminal:
+
+    ```bash
+    sudo apt install ./tumble-<version>-linux-x64.deb
+    ```
+
+3. Open Tumble once from your apps menu. This adds the right-click menu; you can close the window afterwards.
+
+`tumble` is on your PATH. The right-click menu is added to the file managers you have installed:
+
+| File manager | Desktop | Menu |
+|---|---|---|
+| Dolphin | KDE | "Convert to" submenu |
+| GNOME Files (Nautilus) | GNOME, Ubuntu | "Convert to" submenu, which needs nautilus-python (`sudo apt install python3-nautilus`); without it the entries are under Scripts > Tumble |
+| Nemo | Cinnamon, Linux Mint | "Convert to PNG" style entries |
+| Thunar | Xfce | "Convert to PNG" style entries |
+
+Restart the file manager if the menu doesn't show up straight away (for GNOME Files, run `nautilus -q`). If you install another file manager or nautilus-python later, run `tumble menu install` again.
+
+To convert, select one or more files, right-click and pick a format. The menu only lists formats the selected files can be converted to. A progress dialog appears for jobs that take longer than a second (Cancel stops it), and a notification says how it went; clicking it opens the folder. The progress dialog uses `zenity`, or `kdialog` on KDE, and the notification uses `notify-send` (`libnotify-bin`); most desktops come with them.
+
+If you install FFmpeg or LibreOffice later, run `tumble menu install` again to add their formats.
+
+#### Uninstall
 
 ```bash
-sudo apt install ./tumble-<version>-linux-x64.deb
+tumble menu uninstall
+sudo apt remove tumble
 ```
 
-Then open Tumble once from your apps: it adds the right-click menu. `tumble` is on your PATH. To uninstall, run `tumble menu uninstall`, then `sudo apt remove tumble`.
+The first command removes the right-click menu and the second removes the program. To also remove your settings, presets and logs, delete `~/.config/tumble` and `~/.local/share/tumble`.
 
-On other distributions, download `tumble-<version>-linux-x64-lgpl.tar.gz`, unpack it and run `sh install.sh` in that folder. It installs Tumble for your user only (no sudo needed) into `~/.local/share/tumble`, puts `tumble` on your PATH, adds the desktop window to your apps and adds the menu. To remove it all, run `sh ~/.local/share/tumble/app/uninstall.sh`.
+#### Other distributions
 
-The right-click menu is added to the file managers you have installed:
+On Fedora, Arch, openSUSE and others, download `tumble-<version>-linux-x64-lgpl.tar.gz`, unpack it, open a terminal in the unpacked folder and run:
 
-| File manager | Menu |
-|---|---|
-| Dolphin (KDE) | "Convert to" submenu |
-| GNOME Files | "Convert to" submenu, which needs nautilus-python (`python3-nautilus` or `nautilus-python`); without it the entries are under Scripts > Tumble |
-| Nemo (Cinnamon) | "Convert to PNG" style entries |
-| Thunar (Xfce) | "Convert to PNG" style entries |
+```bash
+sh install.sh
+```
 
-Restart the file manager if the menu doesn't show up straight away (for GNOME Files, run `nautilus -q`). The progress dialog uses `zenity`, or `kdialog` on KDE, and the notification uses `notify-send`; most desktops come with them. The desktop window needs WebKitGTK 4.1 (`libwebkit2gtk-4.1-0`), which GNOME and KDE desktops usually already have.
+It installs Tumble for your user only (no sudo needed) into `~/.local/share/tumble`, puts `tumble` on your PATH (in `~/.local/bin`), adds the desktop window to your apps and adds the right-click menu. The desktop window needs WebKitGTK 4.1 (`webkit2gtk4.1` on Fedora, `webkit2gtk-4.1` on Arch), which GNOME and KDE desktops usually already have; the right-click menu and the command line work without it. To remove all of it, including your settings, presets and logs, run:
+
+```bash
+sh ~/.local/share/tumble/app/uninstall.sh
+```
 
 ## CLI
 
