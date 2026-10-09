@@ -1,6 +1,6 @@
 [package]
 name = "tumble-explorer"
-version = "1.0.0"
+version = "1.1.0"
 description = "Windows 11 top-level context menu: an IExplorerCommand handler loaded by File Explorer."
 edition = "2024"
 publish = false
