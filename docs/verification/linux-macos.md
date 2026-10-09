@@ -11,7 +11,9 @@ Windows records in this folder.
 
 ## macOS
 
-1. Unzip the release, run `sh install.sh` in Terminal.
+1. Open the .dmg, drag Tumble to Applications, right-click it > Open. The
+   Quick Action should appear without any other step. (Also try the .zip
+   with `sh install.sh`.)
 2. Finder: select one JPEG, right-click > Quick Actions > Convert with
    Tumble. The list should offer PNG, WebP, AVIF, GIF, TIFF and ICO, and
    converting should write the file next to the original.
@@ -30,7 +32,9 @@ Windows records in this folder.
 For each file manager available (Dolphin, GNOME Files with and without
 nautilus-python, Nemo, Thunar):
 
-1. Run `sh install.sh` from the unpacked release.
+1. Install the .deb (double-click, or `sudo apt install ./tumble-...deb`)
+   and open Tumble once from the app launcher; the menu should appear.
+   Also try the .tar.gz with `sh install.sh`.
 2. Right-click a JPEG: "Convert to" (or "Convert to PNG" entries) should
    list only formats a JPEG can become; a `.txt` file should not also show
    the CSV or Markdown entries in Dolphin.

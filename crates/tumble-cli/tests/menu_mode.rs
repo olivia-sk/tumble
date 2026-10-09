@@ -151,6 +151,13 @@ fn linux_menu_install_status_uninstall() {
             .contains("tumble-")
     );
     assert!(stdout(&run(&["menu", "status"])).contains("not installed"));
+
+    // The desktop window must not add a menu removed on purpose back, until
+    // the next install.
+    let note = data.join("tumble/menu-removed");
+    assert!(note.is_file());
+    assert!(run(&["menu", "install"]).status.success());
+    assert!(!note.exists());
 }
 
 #[cfg(target_os = "macos")]

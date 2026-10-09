@@ -82,27 +82,29 @@ If you'd rather not run an installer, download `tumble-<version>-win-x64-lgpl.zi
 
 ### macOS
 
-Download `tumble-<version>-macos-arm64-lgpl.zip` (Apple silicon) or `tumble-<version>-macos-x64-lgpl.zip` (Intel) from [Releases](../../releases), unzip it, open a terminal in the unzipped folder and run:
+Download `tumble-<version>-macos-arm64.dmg` (Apple silicon) or `tumble-<version>-macos-x64.dmg` (Intel) from [Releases](../../releases), open it and drag Tumble into Applications. Then open Tumble once: it adds the right-click menu.
 
-```bash
-sh install.sh
-```
+Tumble isn't signed by Apple yet, so the first time, macOS says it can't check it for malware. Right-click Tumble in Applications and choose Open, then Open again; after that it opens normally.
 
-It installs Tumble for your user only (no admin rights needed): the desktop window goes in `~/Applications/Tumble.app`, `tumble` goes on your PATH, and the right-click menu is added. To convert, select files in Finder, right-click and choose Quick Actions > Convert with Tumble, then pick a format. When a job ends a notification says how it went, but unlike on Windows and Linux, clicking it doesn't open the folder, since macOS doesn't allow that for this kind of notification.
+To convert, select files in Finder, right-click and choose Quick Actions > Convert with Tumble, then pick a format. When a job ends a notification says how it went, but unlike on Windows and Linux, clicking it doesn't open the folder, since macOS doesn't allow that for this kind of notification. The command line tool is at `/Applications/Tumble.app/Contents/MacOS/tumble`.
 
-Tumble isn't signed by Apple yet. `install.sh` takes care of that, but if you open `Tumble.app` straight from the download, macOS may say it can't check it for malware; right-click it and choose Open to allow it once.
+To uninstall, run `/Applications/Tumble.app/Contents/MacOS/tumble menu uninstall` in Terminal, then drag Tumble to the Trash.
 
-To uninstall, run `sh ~/Library/Application\ Support/Tumble/uninstall.sh`. It removes the program, the right-click menu, your settings and presets, and logs.
+If you'd rather use a terminal, download `tumble-<version>-macos-<arch>-lgpl.zip` instead, unzip it and run `sh install.sh` in that folder. It installs Tumble in `~/Applications`, puts `tumble` on your PATH and adds the menu; to remove it all, run `sh ~/Library/Application\ Support/Tumble/uninstall.sh`.
 
 ### Linux
 
-Download `tumble-<version>-linux-x64-lgpl.tar.gz` from [Releases](../../releases), unpack it, open a terminal in the unpacked folder and run:
+On Ubuntu, Debian, Linux Mint and other distributions that use `.deb` packages, download `tumble-<version>-linux-x64.deb` from [Releases](../../releases) and double-click it, or install it in a terminal:
 
 ```bash
-sh install.sh
+sudo apt install ./tumble-<version>-linux-x64.deb
 ```
 
-It installs Tumble for your user only (no sudo needed) into `~/.local/share/tumble`, puts `tumble` on your PATH, adds the desktop window to your apps and adds the right-click menu to the file managers you have installed:
+Then open Tumble once from your apps: it adds the right-click menu. `tumble` is on your PATH. To uninstall, run `tumble menu uninstall`, then `sudo apt remove tumble`.
+
+On other distributions, download `tumble-<version>-linux-x64-lgpl.tar.gz`, unpack it and run `sh install.sh` in that folder. It installs Tumble for your user only (no sudo needed) into `~/.local/share/tumble`, puts `tumble` on your PATH, adds the desktop window to your apps and adds the menu. To remove it all, run `sh ~/.local/share/tumble/app/uninstall.sh`.
+
+The right-click menu is added to the file managers you have installed:
 
 | File manager | Menu |
 |---|---|
@@ -112,8 +114,6 @@ It installs Tumble for your user only (no sudo needed) into `~/.local/share/tumb
 | Thunar (Xfce) | "Convert to PNG" style entries |
 
 Restart the file manager if the menu doesn't show up straight away (for GNOME Files, run `nautilus -q`). The progress dialog uses `zenity`, or `kdialog` on KDE, and the notification uses `notify-send`; most desktops come with them. The desktop window needs WebKitGTK 4.1 (`libwebkit2gtk-4.1-0`), which GNOME and KDE desktops usually already have.
-
-To uninstall, run `sh ~/.local/share/tumble/app/uninstall.sh`. It removes the program, the right-click menu, your settings and presets, and logs.
 
 ## CLI
 

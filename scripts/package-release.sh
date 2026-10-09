@@ -1,9 +1,15 @@
 #!/usr/bin/env bash
-# Builds the release archive for this system, the counterpart of
+# Builds the release downloads for this system, the counterpart of
 # package-release.ps1:
 #
-#   Linux:  dist/tumble-<version>-linux-<arch>[-lgpl].tar.gz
-#   macOS:  dist/tumble-<version>-macos-<arch>[-lgpl].zip
+#   Linux:  dist/tumble-<version>-linux-<arch>[-lgpl].tar.gz, and with
+#           --desktop also dist/tumble-<version>-linux-<arch>.deb
+#   macOS:  dist/tumble-<version>-macos-<arch>[-lgpl].zip, and with
+#           --desktop also dist/tumble-<version>-macos-<arch>.dmg
+#
+# The .dmg and .deb are the double-click installers, like setup.exe on
+# Windows. Neither runs a setup step, so the desktop window adds the
+# right-click menu the first time it opens.
 #
 # 1. Builds tumble in release mode (and the desktop window with --desktop).
 # 2. Makes sure vendor/ is populated (runs fetch-vendor.sh).
@@ -19,8 +25,8 @@
 #   --lgpl     package libheif without x265 (HEIC read only). Use for builds
 #              you share widely.
 #   --desktop  also build the desktop window (needs Bun; on Linux also the
-#              WebKitGTK development packages Tauri needs). On macOS it
-#              becomes Tumble.app, with tumble inside it.
+#              WebKitGTK development packages Tauri needs) and the .dmg or
+#              .deb. On macOS it becomes Tumble.app, with tumble inside it.
 
 set -euo pipefail
 
@@ -131,6 +137,72 @@ else
     archive="$dist/$name.tar.gz"
 fi
 
+# The double-click installers, which hold the desktop window.
+installer=""
+if [ "$desktop" = 1 ] && [ "$os" = Darwin ]; then
+    echo "== building the .dmg"
+    installer="$dist/tumble-$version-macos-$arch.dmg"
+    dmg_dir="$dist/dmg-$name"
+    rm -rf "$dmg_dir" "$installer"
+    mkdir -p "$dmg_dir"
+    cp -R "$stage/Tumble.app" "$dmg_dir/"
+    ln -s /Applications "$dmg_dir/Applications"
+    hdiutil create -volname Tumble -srcfolder "$dmg_dir" -ov -format UDZO "$installer" > /dev/null
+    rm -rf "$dmg_dir"
+elif [ "$desktop" = 1 ]; then
+    echo "== building the .deb"
+    case "$arch" in
+        x64) deb_arch=amd64 ;;
+        *) deb_arch=$arch ;;
+    esac
+    installer="$dist/tumble-$version-linux-$arch.deb"
+    pkg="$dist/deb-$name"
+    rm -rf "$pkg" "$installer"
+    mkdir -p "$pkg/DEBIAN" "$pkg/usr/lib/tumble" "$pkg/usr/bin" "$pkg/usr/share/applications" \
+        "$pkg/usr/share/icons/hicolor/256x256/apps" "$pkg/usr/share/doc/tumble"
+    cp "$stage/tumble" "$stage/tumble-desktop" "$pkg/usr/lib/tumble/"
+    find "$stage" -maxdepth 1 -name '*.so*' -exec cp {} "$pkg/usr/lib/tumble/" \;
+    ln -s ../lib/tumble/tumble "$pkg/usr/bin/tumble"
+    cp apps/desktop/src-tauri/icons/128x128@2x.png "$pkg/usr/share/icons/hicolor/256x256/apps/tumble.png"
+    cp -R "$stage/licences/." "$pkg/usr/share/doc/tumble/"
+    cat > "$pkg/usr/share/applications/tumble.desktop" << EOF
+[Desktop Entry]
+Type=Application
+Name=Tumble
+Comment=Convert images, video, audio and documents
+Exec=/usr/lib/tumble/tumble-desktop %F
+Icon=tumble
+Terminal=false
+Categories=Utility;Graphics;AudioVideo;
+EOF
+    size_kb=$(du -sk "$pkg/usr" | cut -f1)
+    # glibc and libstdc++ of the Ubuntu it was built on; WebKitGTK for the
+    # window. FFmpeg, LibreOffice and the dialog tools are optional.
+    glibc=$(ldd --version | head -1 | grep -oE '[0-9]+\.[0-9]+$')
+    cat > "$pkg/DEBIAN/control" << EOF
+Package: tumble
+Version: $version
+Section: graphics
+Priority: optional
+Architecture: $deb_arch
+Installed-Size: $size_kb
+Maintainer: olivia-sk <olivia-sk@users.noreply.github.com>
+Homepage: https://github.com/olivia-sk/tumble
+Depends: libc6 (>= $glibc), libstdc++6, libgcc-s1, libwebkit2gtk-4.1-0, libgtk-3-0
+Recommends: ffmpeg, libnotify-bin, zenity
+Suggests: libreoffice, python3-nautilus
+Description: local file converter with a right-click menu
+ Tumble converts images, HEIC, PDF, video, audio and documents on this
+ computer, from the file manager's right-click menu, a desktop window or
+ the command line. Video and audio need FFmpeg; documents need
+ LibreOffice 25.8 or newer.
+ .
+ Open Tumble once from the app launcher to add the right-click menu.
+EOF
+    dpkg-deb --root-owner-group --build "$pkg" "$installer" > /dev/null
+    rm -rf "$pkg"
+fi
+
 echo "== smoke test from a clean folder"
 test_dir=$(mktemp -d "${TMPDIR:-/tmp}/tumble-release-test.XXXXXX")
 trap 'rm -rf "$test_dir"' EXIT
@@ -220,5 +292,33 @@ if [ -n "$left" ] || grep -qs 'added by Tumble' "$home/.profile" "$home/.zprofil
 fi
 echo "  ok: install.sh, menu, uninstall.sh"
 
-size=$(du -k "$archive" | cut -f1)
-echo "== $archive ($((size / 1024)) MB)"
+if [ -n "$installer" ]; then
+    echo "== installer from a clean folder"
+    if [ "$os" = Darwin ]; then
+        mnt="$test_dir/mnt"
+        mkdir -p "$mnt"
+        hdiutil attach -nobrowse -readonly -mountpoint "$mnt" "$installer" > /dev/null
+        dmg_engines=$("$mnt/Tumble.app/Contents/MacOS/tumble" engines) || true
+        [ -L "$mnt/Applications" ] || { hdiutil detach "$mnt" > /dev/null; echo "the .dmg has no Applications link" >&2; exit 1; }
+        codesign --verify --deep --strict "$mnt/Tumble.app" || { hdiutil detach "$mnt" > /dev/null; exit 1; }
+        hdiutil detach "$mnt" > /dev/null
+    else
+        root_dir="$test_dir/deb"
+        dpkg-deb -x "$installer" "$root_dir"
+        dpkg-deb --info "$installer" > /dev/null
+        [ -x "$root_dir/usr/lib/tumble/tumble-desktop" ] || { echo "the .deb has no desktop window" >&2; exit 1; }
+        [ "$(readlink "$root_dir/usr/bin/tumble")" = ../lib/tumble/tumble ] || { echo "the .deb has no tumble link" >&2; exit 1; }
+        dmg_engines=$("$root_dir/usr/lib/tumble/tumble" engines) || true
+    fi
+    if ! echo "$dmg_engines" | grep -q 'libheif \[ok\]' || ! echo "$dmg_engines" | grep -q 'pdfium \[ok\]'; then
+        echo "the installer's tumble does not find its libraries:" >&2
+        echo "$dmg_engines" >&2
+        exit 1
+    fi
+    echo "  ok: $(basename "$installer")"
+fi
+
+for f in "$archive" $installer; do
+    size=$(du -k "$f" | cut -f1)
+    echo "== $f ($((size / 1024)) MB)"
+done

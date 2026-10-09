@@ -15,6 +15,19 @@ pub fn run(action: &crate::args::MenuAction) -> u8 {
         MenuAction::Uninstall => uninstall(),
         MenuAction::Status => status(),
     };
+    #[cfg(unix)]
+    if let (Ok(exit::OK), Some(note)) = (&result, removed_note()) {
+        match action {
+            MenuAction::Install => {
+                let _ = std::fs::remove_file(note);
+            }
+            MenuAction::Uninstall => {
+                let _ = note.parent().map(std::fs::create_dir_all);
+                let _ = std::fs::write(note, "The right-click menu was removed on purpose.\n");
+            }
+            MenuAction::Status => {}
+        }
+    }
     match result {
         Ok(code) => code,
         Err(e) => {
@@ -52,6 +65,13 @@ Not included, because these engines are missing:"
         }
         println!("Run `tumble menu install` again after installing them.");
     }
+}
+
+/// Left by `menu uninstall` on macOS and Linux, so the desktop window,
+/// which adds the menu when it first opens, doesn't add it back.
+#[cfg(unix)]
+fn removed_note() -> Option<std::path::PathBuf> {
+    Some(tumble_core::config::data_dir()?.join("menu-removed"))
 }
 
 /// This program, with links resolved, which is what the menu runs.
