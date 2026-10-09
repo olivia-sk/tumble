@@ -1,9 +1,12 @@
-//! Finding and loading the vendor DLLs (libheif, PDFium).
+//! Finding and loading the vendor libraries (libheif, PDFium): DLLs on
+//! Windows, `.dylib` on macOS, `.so` on Linux.
 //!
-//! DLLs are only ever loaded by full path from the folder holding the
+//! They are only ever loaded by full path from the folder holding the
 //! running exe, never through the default search order (current folder,
-//! PATH), so a planted DLL cannot be picked up. Their own dependencies are
-//! resolved from that same folder, then System32.
+//! PATH, `LD_LIBRARY_PATH`), so a planted library cannot be picked up. Their
+//! own dependencies are resolved from that same folder (Windows load flags,
+//! or the `$ORIGIN` / `@loader_path` rpath `fetch-vendor.sh` builds them
+//! with), then the system.
 //!
 //! Under `cargo test` the exe lives in `target/<profile>/deps/`; the build
 //! script copies `vendor/` into `target/<profile>/`, so the parent of a
@@ -12,9 +15,20 @@
 use libloading::Library;
 use std::path::{Path, PathBuf};
 
-/// Folders that may hold vendor DLLs, most preferred first.
+/// Where messages say the libraries belong.
+pub const WHERE: &str = if cfg!(windows) { "next to tumble.exe" } else { "next to tumble" };
+
+/// The script that fetches them, for messages.
+pub const FETCH: &str =
+    if cfg!(windows) { "scripts/fetch-vendor.ps1" } else { "scripts/fetch-vendor.sh" };
+
+/// Folders that may hold vendor libraries, most preferred first.
 fn dirs() -> Vec<PathBuf> {
-    let Some(dir) = std::env::current_exe().ok().and_then(|e| e.parent().map(Path::to_path_buf))
+    // Resolve links: ~/.local/bin/tumble points into the install folder.
+    let Some(dir) = std::env::current_exe()
+        .ok()
+        .map(|e| std::fs::canonicalize(&e).unwrap_or(e))
+        .and_then(|e| e.parent().map(Path::to_path_buf))
     else {
         return Vec::new();
     };
@@ -33,7 +47,8 @@ pub fn find_dir(names: &[&str]) -> Option<PathBuf> {
     dirs().into_iter().find(|d| names.iter().all(|n| d.join(n).is_file()))
 }
 
-/// Loads `path`, resolving its dependencies from its own folder and System32.
+/// Loads `path`, resolving its dependencies from its own folder, then the
+/// system (System32 on Windows).
 pub fn load(path: &Path) -> Result<Library, String> {
     #[cfg(windows)]
     let result = {

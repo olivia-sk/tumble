@@ -1,6 +1,7 @@
 //! Conversion: `tumble <files or folders...> --to <format>` on the command
 //! line, and `tumble convert ...` (hidden), which the right-click menu runs
-//! through tumblew.exe (see `menu.rs`).
+//! (through tumblew.exe on Windows; see `menu.rs`). `tumble pick ...`
+//! (hidden) asks for the format first; the macOS Quick Action runs it.
 //!
 //! - `setup.rs`   arguments to target and options
 //! - `inputs.rs`  paths to a list of jobs
@@ -9,8 +10,8 @@
 
 mod batch;
 mod inputs;
-#[cfg(windows)]
 mod menu;
+mod pick;
 mod report;
 mod setup;
 
@@ -19,8 +20,8 @@ use crate::exit;
 use report::{Mode, Reporter};
 use tumble_core::CancelToken;
 
-#[cfg(windows)]
 pub use menu::run_menu;
+pub use pick::run_pick;
 
 pub fn run(args: ConvertArgs) -> u8 {
     if let Some(warning) = tumble_core::config::load_warning() {

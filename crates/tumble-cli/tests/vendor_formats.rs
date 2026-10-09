@@ -1,4 +1,4 @@
-//! HEIC and PDF through `tumble.exe`, end to end. Skips when the vendor DLLs
+//! HEIC and PDF through `tumble`, end to end. Skips when the vendor libraries
 //! are missing.
 
 mod common;
@@ -34,8 +34,8 @@ fn two_page_pdf() -> Vec<u8> {
 
 #[test]
 fn pdf_pages_land_numbered_in_the_output_folder() {
-    if !vendor_dll("pdfium.dll") {
-        eprintln!("skipped: pdfium.dll not next to tumble.exe");
+    if !vendor_dll(PDFIUM) {
+        eprintln!("skipped: {PDFIUM} not next to tumble");
         return;
     }
     let dir = tempfile::tempdir().unwrap();
@@ -71,8 +71,8 @@ fn pdf_pages_land_numbered_in_the_output_folder() {
 
 #[test]
 fn heic_round_trip_through_the_cli() {
-    if !vendor_dll("libx265.dll") {
-        eprintln!("skipped: libheif with x265 not next to tumble.exe");
+    if !vendor_dll(HEIF_ENCODER) {
+        eprintln!("skipped: libheif with x265 not next to tumble");
         return;
     }
     let dir = tempfile::tempdir().unwrap();
@@ -88,9 +88,9 @@ fn heic_round_trip_through_the_cli() {
 
 #[test]
 fn without_vendor_dlls_heic_and_pdf_disappear_cleanly() {
-    // A copy of tumble.exe on its own, with no DLLs beside it.
+    // A copy of tumble on its own, with no libraries beside it.
     let dir = tempfile::tempdir().unwrap();
-    let lone = dir.path().join("tumble.exe");
+    let lone = dir.path().join(exe_name("tumble"));
     std::fs::copy(env!("CARGO_BIN_EXE_tumble"), &lone).unwrap();
     let run = |args: &[&str]| std::process::Command::new(&lone).args(args).output().unwrap();
 
@@ -100,11 +100,8 @@ fn without_vendor_dlls_heic_and_pdf_disappear_cleanly() {
     assert!(!targets.contains("heic"), "{targets}");
 
     let engines = String::from_utf8(run(&["engines"]).stdout).unwrap();
-    assert!(
-        engines.contains("libheif [missing] heif.dll, libde265.dll, aom.dll not found"),
-        "{engines}"
-    );
-    assert!(engines.contains("pdfium [missing] pdfium.dll not found"), "{engines}");
+    assert!(engines.contains(&format!("libheif [missing] {HEIF_REQUIRED} not found")), "{engines}");
+    assert!(engines.contains(&format!("pdfium [missing] {PDFIUM} not found")), "{engines}");
     assert!(engines.contains("image [ok]"), "{engines}");
 
     let png = image_file(&dir.path().join("a.png"));

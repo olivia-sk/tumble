@@ -2,7 +2,7 @@
 //! equivalents, text and HTML, among themselves and to PDF. Documents reach
 //! images through PDF and PDFium (two routed steps), one image per page.
 //!
-//! Runs the user's own `soffice.exe` headless, each job with a throwaway
+//! Runs the user's own `soffice` headless, each job with a throwaway
 //! profile (`profile.rs`), and kills the whole LibreOffice process tree if
 //! a file takes longer than the timeout (120 s, or `TUMBLE_SOFFICE_TIMEOUT`
 //! seconds).
@@ -20,11 +20,18 @@ use tumble_core::{
     CancelToken, ConvertOptions, Engine, EngineError, FormatId, Progress, Step, brand,
 };
 
+#[cfg(windows)]
 pub const INSTALL_HINT: &str = "winget install TheDocumentFoundation.LibreOffice";
+#[cfg(target_os = "macos")]
+pub const INSTALL_HINT: &str = "brew install --cask libreoffice";
+#[cfg(not(any(windows, target_os = "macos")))]
+pub const INSTALL_HINT: &str =
+    "your package manager (LibreOffice 25.8 or newer), or from libreoffice.org";
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(120);
 
-const SOFFICE: Tool = Tool { exe: "soffice.exe", env: "SOFFICE" };
+const SOFFICE: Tool = Tool { name: "soffice", env: "SOFFICE" };
 
+#[cfg(windows)]
 fn known_dirs() -> Vec<PathBuf> {
     let mut dirs = vec![
         PathBuf::from(r"C:\Program Files\LibreOffice\program"),
@@ -33,6 +40,26 @@ fn known_dirs() -> Vec<PathBuf> {
     if let Some(local) = std::env::var_os("LOCALAPPDATA") {
         dirs.push(PathBuf::from(local).join(r"Programs\LibreOffice\program"));
     }
+    dirs
+}
+
+/// The app bundle, in /Applications or ~/Applications.
+#[cfg(target_os = "macos")]
+fn known_dirs() -> Vec<PathBuf> {
+    let app = "LibreOffice.app/Contents/MacOS";
+    let mut dirs = vec![PathBuf::from("/Applications").join(app)];
+    dirs.extend(crate::tools::home().map(|h| h.join("Applications").join(app)));
+    dirs.extend(["/opt/homebrew/bin", "/usr/local/bin"].map(PathBuf::from));
+    dirs
+}
+
+/// Distribution packages, the libreoffice.org packages in /opt (newest
+/// first) and Snap.
+#[cfg(not(any(windows, target_os = "macos")))]
+fn known_dirs() -> Vec<PathBuf> {
+    let mut dirs = vec![PathBuf::from("/usr/bin"), PathBuf::from("/usr/lib/libreoffice/program")];
+    dirs.extend(crate::tools::glob_dirs(Path::new("/opt"), "libreoffice", &["program"]));
+    dirs.extend(["/usr/local/bin", "/snap/bin"].map(PathBuf::from));
     dirs
 }
 
@@ -58,7 +85,9 @@ pub struct OfficeEngine;
 impl OfficeEngine {
     pub fn describe() -> (bool, String) {
         match soffice() {
-            None => (false, format!("soffice.exe not found; install with: {INSTALL_HINT}")),
+            None => {
+                (false, format!("{} not found; install with: {INSTALL_HINT}", SOFFICE.file_name()))
+            }
             Some(path) => (true, format!("LibreOffice ({})", path.display())),
         }
     }

@@ -1,4 +1,4 @@
-//! Video, audio, presets and config.toml through `tumble.exe`. FFmpeg tests
+//! Video, audio, presets and config.toml through `tumble`. FFmpeg tests
 //! skip when FFmpeg is missing.
 
 mod common;
@@ -24,10 +24,10 @@ fn tone(ffmpeg: &Path, out: &Path) {
     assert!(status.success());
 }
 
-/// Runs tumble.exe with `APPDATA` pointed at `appdata`, so config.toml and
+/// Runs tumble with its settings folder under `appdata`, so config.toml and
 /// presets.toml come from there.
 fn tumble_with_appdata(appdata: &Path, args: &[&std::ffi::OsStr]) -> Output {
-    Command::new(env!("CARGO_BIN_EXE_tumble")).env("APPDATA", appdata).args(args).output().unwrap()
+    isolate(&mut Command::new(env!("CARGO_BIN_EXE_tumble")), appdata).args(args).output().unwrap()
 }
 
 #[test]
@@ -76,7 +76,7 @@ fn presets_command_and_flag() {
 #[test]
 fn user_presets_and_config_toml() {
     let appdata = tempfile::tempdir().unwrap();
-    let data = appdata.path().join("Tumble");
+    let data = settings_dir(appdata.path());
     std::fs::create_dir_all(&data).unwrap();
     let out_dir = appdata.path().join("converted");
     std::fs::write(
@@ -139,29 +139,40 @@ fn user_presets_and_config_toml() {
 
 #[test]
 fn without_ffmpeg_video_and_audio_disappear() {
-    // A lone copy of tumble.exe with PATH and the usual install folders
+    // A lone copy of tumble with PATH and the usual install folders
     // pointed somewhere empty.
     let dir = tempfile::tempdir().unwrap();
-    let lone = dir.path().join("tumble.exe");
+    let lone = dir.path().join(exe_name("tumble"));
     std::fs::copy(env!("CARGO_BIN_EXE_tumble"), &lone).unwrap();
     let empty = dir.path().join("empty");
     std::fs::create_dir(&empty).unwrap();
     let run = |args: &[&str]| {
-        Command::new(&lone)
+        isolate(&mut Command::new(&lone), &empty)
             .args(args)
-            .env("PATH", r"C:\Windows\System32")
-            .env("LOCALAPPDATA", &empty)
+            .env("PATH", if cfg!(windows) { r"C:\Windows\System32" } else { "/nonexistent" })
             .env("USERPROFILE", &empty)
-            .env("APPDATA", &empty)
             .env_remove("TUMBLE_FFMPEG")
             .env_remove("TUMBLE_FFPROBE")
             .output()
             .unwrap()
     };
-    if Path::new(r"C:\Program Files\ffmpeg\bin\ffmpeg.exe").exists()
-        || Path::new(r"C:\ffmpeg\bin\ffmpeg.exe").exists()
-        || Path::new(r"C:\ProgramData\chocolatey\bin\ffmpeg.exe").exists()
-    {
+    let machine_wide: &[&str] = if cfg!(windows) {
+        &[
+            r"C:\Program Files\ffmpeg\bin\ffmpeg.exe",
+            r"C:\ffmpeg\bin\ffmpeg.exe",
+            r"C:\ProgramData\chocolatey\bin\ffmpeg.exe",
+        ]
+    } else {
+        &[
+            "/usr/bin/ffmpeg",
+            "/usr/local/bin/ffmpeg",
+            "/opt/homebrew/bin/ffmpeg",
+            "/opt/local/bin/ffmpeg",
+            "/snap/bin/ffmpeg",
+            "/home/linuxbrew/.linuxbrew/bin/ffmpeg",
+        ]
+    };
+    if machine_wide.iter().any(|p| Path::new(p).exists()) {
         eprintln!("skipped: FFmpeg is installed in a machine-wide folder");
         return;
     }
@@ -169,7 +180,8 @@ fn without_ffmpeg_video_and_audio_disappear() {
     assert_eq!(run(&["targets", "song.flac"]).status.code(), Some(3));
     let engines = String::from_utf8(run(&["engines"]).stdout).unwrap();
     assert!(
-        engines.contains("ffmpeg [missing]") && engines.contains("winget install Gyan.FFmpeg"),
+        engines.contains("ffmpeg [missing]")
+            && engines.contains(tumble_engines::ffmpeg::INSTALL_HINT),
         "{engines}"
     );
     let targets = String::from_utf8(run(&["targets", "anim.gif"]).stdout).unwrap();

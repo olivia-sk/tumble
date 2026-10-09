@@ -8,12 +8,19 @@ use common::*;
 use std::process::Command;
 use std::time::{Duration, Instant};
 
+/// Running LibreOffice processes (`soffice.bin`; on macOS the app's own
+/// `soffice`).
 fn soffice_bins() -> usize {
-    let out = Command::new("tasklist")
-        .args(["/FI", "IMAGENAME eq soffice.bin", "/FO", "CSV", "/NH"])
-        .output()
-        .unwrap();
-    String::from_utf8_lossy(&out.stdout).lines().filter(|l| l.contains("soffice.bin")).count()
+    if cfg!(windows) {
+        let out = Command::new("tasklist")
+            .args(["/FI", "IMAGENAME eq soffice.bin", "/FO", "CSV", "/NH"])
+            .output()
+            .unwrap();
+        String::from_utf8_lossy(&out.stdout).lines().filter(|l| l.contains("soffice.bin")).count()
+    } else {
+        let out = Command::new("pgrep").args(["-f", "soffice"]).output().unwrap();
+        String::from_utf8_lossy(&out.stdout).lines().count()
+    }
 }
 
 #[test]
@@ -29,10 +36,19 @@ fn timeout_kills_libreoffice() {
     let warm = tumble([txt.as_os_str(), "--to".as_ref(), "odt".as_ref()]);
     assert!(warm.status.success(), "{}", stderr(&warm));
 
+    // Big enough that no machine converts it within the limit.
+    std::fs::write(
+        &txt,
+        "A line of text to lay out across many pages.
+"
+        .repeat(200_000),
+    )
+    .unwrap();
+
     let before = soffice_bins();
     let start = Instant::now();
     let out = Command::new(env!("CARGO_BIN_EXE_tumble"))
-        .env("TUMBLE_SOFFICE_TIMEOUT", "0.3")
+        .env("TUMBLE_SOFFICE_TIMEOUT", "0.2")
         .args([txt.as_os_str(), "--to".as_ref(), "pdf".as_ref()])
         .output()
         .unwrap();

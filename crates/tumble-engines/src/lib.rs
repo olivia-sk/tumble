@@ -2,12 +2,12 @@
 //! nothing converts a file without going through it.
 //!
 //! - `image/`  built-in raster engine (always available)
-//! - `heif/`   libheif, HEIC in and out (heif.dll)
-//! - `pdf/`    PDFium, PDF pages to images (pdfium.dll)
-//! - `ffmpeg/` FFmpeg, video and audio (the user's ffmpeg.exe)
-//! - `office/` LibreOffice, documents (the user's soffice.exe)
+//! - `heif/`   libheif, HEIC in and out (vendor library)
+//! - `pdf/`    PDFium, PDF pages to images (vendor library)
+//! - `ffmpeg/` FFmpeg, video and audio (the user's ffmpeg)
+//! - `office/` LibreOffice, documents (the user's soffice)
 //! - `raster/` codecs and pixel handling the engines share
-//! - `native`  finding and loading vendor DLLs
+//! - `native`  finding and loading vendor libraries
 //! - `tools`   finding external programs
 //! - `process_tree` running a program so its whole process tree can be killed
 

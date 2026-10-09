@@ -1,6 +1,6 @@
 //! The FFmpeg engine: video and audio between each other, video to images
 //! (one frame, or an animated GIF), and GIF to video. Runs the user's own
-//! `ffmpeg.exe` and `ffprobe.exe` (see `tools.rs` for how they are found);
+//! `ffmpeg` and `ffprobe` (see `tools.rs` for how they are found);
 //! Tumble never installs or downloads them.
 
 pub mod plan;
@@ -17,12 +17,18 @@ use tumble_core::{
     CancelToken, ConvertOptions, Engine, EngineError, FormatId, Kind, Progress, Step,
 };
 
+#[cfg(windows)]
 pub const INSTALL_HINT: &str = "winget install Gyan.FFmpeg";
+#[cfg(target_os = "macos")]
+pub const INSTALL_HINT: &str = "brew install ffmpeg";
+#[cfg(not(any(windows, target_os = "macos")))]
+pub const INSTALL_HINT: &str = "your package manager, e.g. sudo apt install ffmpeg";
 
-const FFMPEG: Tool = Tool { exe: "ffmpeg.exe", env: "FFMPEG" };
-const FFPROBE: Tool = Tool { exe: "ffprobe.exe", env: "FFPROBE" };
+const FFMPEG: Tool = Tool { name: "ffmpeg", env: "FFMPEG" };
+const FFPROBE: Tool = Tool { name: "ffprobe", env: "FFPROBE" };
 
 /// Where winget, scoop, Chocolatey and manual installs usually put FFmpeg.
+#[cfg(windows)]
 fn known_dirs() -> Vec<PathBuf> {
     let mut dirs = Vec::new();
     if let Some(local) = std::env::var_os("LOCALAPPDATA").map(PathBuf::from) {
@@ -41,7 +47,28 @@ fn known_dirs() -> Vec<PathBuf> {
     dirs
 }
 
-/// ffmpeg.exe and ffprobe.exe, found once per process.
+/// Where Homebrew, MacPorts and manual installs put FFmpeg. Finder starts
+/// Quick Actions with a short PATH that has none of these.
+#[cfg(target_os = "macos")]
+fn known_dirs() -> Vec<PathBuf> {
+    let mut dirs: Vec<PathBuf> =
+        ["/opt/homebrew/bin", "/usr/local/bin", "/opt/local/bin"].map(PathBuf::from).into();
+    dirs.extend(tools::home().map(|h| h.join(".local/bin")));
+    dirs
+}
+
+/// Distribution packages, Snap, Linuxbrew and manual installs.
+#[cfg(not(any(windows, target_os = "macos")))]
+fn known_dirs() -> Vec<PathBuf> {
+    let mut dirs: Vec<PathBuf> =
+        ["/usr/bin", "/usr/local/bin", "/snap/bin", "/home/linuxbrew/.linuxbrew/bin"]
+            .map(PathBuf::from)
+            .into();
+    dirs.extend(tools::home().map(|h| h.join(".local/bin")));
+    dirs
+}
+
+/// ffmpeg and ffprobe, found once per process.
 pub fn tools() -> Option<&'static (PathBuf, PathBuf)> {
     static FOUND: OnceLock<Option<(PathBuf, PathBuf)>> = OnceLock::new();
     FOUND
@@ -50,7 +77,7 @@ pub fn tools() -> Option<&'static (PathBuf, PathBuf)> {
             let known = known_dirs();
             let ffmpeg = FFMPEG.find(cfg.ffmpeg.as_deref(), &known)?;
             // Prefer the ffprobe that sits beside the ffmpeg we found.
-            let beside = ffmpeg.with_file_name(FFPROBE.exe);
+            let beside = ffmpeg.with_file_name(FFPROBE.file_name());
             let ffprobe = std::env::var_os(tumble_core::brand::env_var(FFPROBE.env))
                 .map(PathBuf::from)
                 .filter(|p| p.is_file())
@@ -60,6 +87,25 @@ pub fn tools() -> Option<&'static (PathBuf, PathBuf)> {
             Some((ffmpeg, ffprobe))
         })
         .as_ref()
+}
+
+/// Whether the FFmpeg found here has an encoder, from `ffmpeg -encoders`,
+/// asked once per process. True when FFmpeg is missing or can't be asked,
+/// so plans stay as they are.
+pub fn has_encoder(name: &str) -> bool {
+    static LIST: OnceLock<Option<String>> = OnceLock::new();
+    let list = LIST.get_or_init(|| {
+        let (ffmpeg, _) = tools()?;
+        let out = tools::command(ffmpeg)
+            .args(["-hide_banner", "-encoders"])
+            .stdin(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .output()
+            .ok()?;
+        Some(String::from_utf8_lossy(&out.stdout).into_owned())
+    });
+    // Lines look like " A....D libvorbis            libvorbis".
+    list.as_ref().is_none_or(|l| l.lines().any(|line| line.split_whitespace().nth(1) == Some(name)))
 }
 
 fn ids(kind: Kind) -> impl Iterator<Item = FormatId> {
@@ -74,7 +120,11 @@ impl FfmpegEngine {
         let Some((ffmpeg, _)) = tools() else {
             return (
                 false,
-                format!("ffmpeg.exe and ffprobe.exe not found; install with: {INSTALL_HINT}"),
+                format!(
+                    "{} and {} not found; install with: {INSTALL_HINT}",
+                    FFMPEG.file_name(),
+                    FFPROBE.file_name()
+                ),
             );
         };
         let version = tools::command(ffmpeg)

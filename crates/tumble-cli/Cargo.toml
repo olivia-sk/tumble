@@ -1,6 +1,6 @@
 [package]
 name = "tumble-cli"
-description = "tumble.exe (console) and tumblew.exe (GUI subsystem, used by the right-click menu)."
+description = "tumble (the CLI, also run by the right-click menu) and tumblew.exe (the Windows menu's windowless launcher)."
 version.workspace = true
 edition.workspace = true
 publish.workspace = true
@@ -22,8 +22,6 @@ serde.workspace = true
 serde_json.workspace = true
 rayon.workspace = true
 ctrlc.workspace = true
-
-[target.'cfg(windows)'.dependencies]
 tumble-shell.workspace = true
 
 [build-dependencies]

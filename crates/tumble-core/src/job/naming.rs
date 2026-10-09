@@ -9,13 +9,16 @@ use std::sync::Mutex;
 /// same name and no job ever writes over one of the batch's inputs.
 #[derive(Default)]
 pub struct OutputNamer {
-    /// Lower-cased paths, since Windows file names ignore case.
+    /// Paths as `key` makes them.
     taken: Mutex<HashSet<String>>,
     protected: Mutex<HashSet<String>>,
 }
 
-fn key(path: &Path) -> String {
-    path.to_string_lossy().to_lowercase()
+/// Lower-cased on Windows and macOS, whose file names ignore case by
+/// default; as is on Linux, where `a.png` and `A.png` are different files.
+pub fn key(path: &Path) -> String {
+    let s = path.to_string_lossy();
+    if cfg!(any(windows, target_os = "macos")) { s.to_lowercase() } else { s.into_owned() }
 }
 
 impl OutputNamer {
@@ -84,11 +87,12 @@ mod tests {
         let name = OsStr::new("photo.webp");
         assert_eq!(namer.claim(d, name, false), d.join("photo (1).webp"));
         assert_eq!(namer.claim(d, name, false), d.join("photo (2).webp"));
-        assert_eq!(
-            namer.claim(d, OsStr::new("PHOTO.webp"), false),
-            d.join("PHOTO (3).webp"),
-            "names differing only in case collide on Windows"
-        );
+        let upper = namer.claim(d, OsStr::new("PHOTO.webp"), false);
+        if cfg!(any(windows, target_os = "macos")) {
+            assert_eq!(upper, d.join("PHOTO (3).webp"), "names differing only in case collide");
+        } else {
+            assert_eq!(upper, d.join("PHOTO.webp"), "case matters on Linux");
+        }
     }
 
     #[test]

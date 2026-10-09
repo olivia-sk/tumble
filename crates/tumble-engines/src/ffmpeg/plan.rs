@@ -120,7 +120,23 @@ fn audio_encoder(to: &str, options: &ConvertOptions) -> Vec<OsString> {
         "mp4" | "mov" | "mkv" | "aac" | "m4a" => args(&["-c:a", "aac", "-b:a", &kbps(192)]),
         "webm" | "opus" => args(&["-c:a", "libopus", "-b:a", &kbps(128)]),
         "avi" | "mp3" => args(&["-c:a", "libmp3lame", "-b:a", &kbps(192)]),
-        "ogg" => args(&["-c:a", "libvorbis", "-b:a", &kbps(192)]),
+        "ogg" if super::has_encoder("libvorbis") => {
+            args(&["-c:a", "libvorbis", "-b:a", &kbps(192)])
+        }
+        // Homebrew's FFmpeg is built without libvorbis. FFmpeg's own Vorbis
+        // encoder is marked experimental and only writes stereo.
+        "ogg" => {
+            return args(&[
+                "-c:a",
+                "vorbis",
+                "-strict",
+                "experimental",
+                "-b:a",
+                &kbps(192),
+                "-ac",
+                "2",
+            ]);
+        }
         "flac" => args(&["-c:a", "flac"]),
         "wav" => args(&["-c:a", "pcm_s16le"]),
         other => unreachable!("no audio encoder for {other}"),
@@ -327,17 +343,21 @@ mod tests {
     }
 
     fn plan(from: &'static str, to: &'static str, m: &Media, o: &ConvertOptions) -> Vec<String> {
-        let p = build(
-            FormatId(from),
-            FormatId(to),
-            m,
-            o,
-            Path::new(r"C:\in\-clip.x"),
-            Path::new(r"C:\out\o.x"),
-        )
-        .unwrap();
+        let p = build(FormatId(from), FormatId(to), m, o, &input(), &output()).unwrap();
         let (Plan::Encode(a) | Plan::Frame(a)) = p;
         a.into_iter().map(|s| s.into_string().unwrap()).collect()
+    }
+
+    fn root() -> std::path::PathBuf {
+        if cfg!(windows) { "C:\\".into() } else { "/".into() }
+    }
+
+    fn input() -> std::path::PathBuf {
+        root().join("in").join("-clip.x")
+    }
+
+    fn output() -> std::path::PathBuf {
+        root().join("out").join("o.x")
     }
 
     fn has(args: &[String], pair: &[&str]) -> bool {
@@ -368,8 +388,9 @@ mod tests {
     #[test]
     fn paths_are_file_urls() {
         let a = plan("mp4", "mp3", &media(Some("h264"), Some("aac")), &ConvertOptions::default());
-        assert!(a.contains(&r"file:C:\in\-clip.x".to_string()), "a leading dash stays a path");
-        assert_eq!(a.last().unwrap(), r"file:C:\out\o.x");
+        let url = |p: std::path::PathBuf| format!("file:{}", p.display());
+        assert!(a.contains(&url(input())), "a leading dash stays a path: {a:?}");
+        assert_eq!(a.last().unwrap(), &url(output()));
     }
 
     #[test]

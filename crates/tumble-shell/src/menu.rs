@@ -19,16 +19,12 @@ use crate::registry::{self, Key};
 use std::io;
 use std::path::{Path, PathBuf};
 use tumble_core::format::FORMATS;
-use tumble_core::{Format, FormatId, brand};
+use tumble_core::{FormatId, brand};
 
 /// The real classes root. Tests pass a sandbox instead.
 pub const CLASSES: &str = r"Software\Classes";
 
-/// One input format and the targets its submenu offers, in order.
-pub struct FormatMenu {
-    pub format: &'static Format,
-    pub targets: Vec<FormatId>,
-}
+pub use crate::FormatMenu;
 
 /// One key to create (relative to the classes root) and its string values;
 /// a `None` name is the key's default value.
@@ -220,6 +216,7 @@ fn notify_explorer() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tumble_core::Format;
 
     fn menus() -> Vec<FormatMenu> {
         vec![

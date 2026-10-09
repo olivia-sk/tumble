@@ -4,8 +4,9 @@
 //!
 //! A fresh profile costs LibreOffice about 4 s to set up; a copied one
 //! about 1 s. So one pristine template is built per LibreOffice version in
-//! `%LOCALAPPDATA%\Tumble\office-profile\<version key>` and copied into each
-//! job's scratch folder.
+//! `office-profile/<version key>` under the data folder
+//! (`%LOCALAPPDATA%\Tumble` on Windows) and copied into each job's scratch
+//! folder.
 
 use crate::process_tree::{Tree, Waited};
 use std::fs;
@@ -13,12 +14,15 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::Duration;
-use tumble_core::brand;
 
 /// `file:///C:/Users/Jo%20Doe/...`, as `-env:UserInstallation` wants.
 pub fn file_url(path: &Path) -> String {
-    let mut url = String::from("file:///");
-    for b in path.to_string_lossy().replace('\\', "/").bytes() {
+    let mut url = String::from("file://");
+    let path = path.to_string_lossy().replace('\\', "/");
+    if !path.starts_with('/') {
+        url.push('/');
+    }
+    for b in path.bytes() {
         match b {
             b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'/' | b':' | b'-' | b'_' | b'.' | b'~' => {
                 url.push(b as char)
@@ -32,6 +36,9 @@ pub fn file_url(path: &Path) -> String {
 /// A key that changes when LibreOffice is updated (size and modified time
 /// of soffice.bin), plus a template layout version.
 fn version_key(soffice: &Path) -> String {
+    // On Linux /usr/bin/soffice is a link into the install folder.
+    let soffice = fs::canonicalize(soffice).unwrap_or_else(|_| soffice.to_path_buf());
+    let soffice = soffice.as_path();
     let bin = soffice.with_file_name("soffice.bin");
     let meta = fs::metadata(&bin).or_else(|_| fs::metadata(soffice));
     match meta {
@@ -65,9 +72,7 @@ fn copy_dir(from: &Path, to: &Path) -> io::Result<()> {
 /// cannot be made; callers then let LibreOffice create a fresh profile.
 fn template(soffice: &Path) -> Option<PathBuf> {
     static BUILDING: Mutex<()> = Mutex::new(());
-    let root = PathBuf::from(std::env::var_os("LOCALAPPDATA")?)
-        .join(brand::DATA_DIR)
-        .join("office-profile");
+    let root = tumble_core::config::data_dir()?.join("office-profile");
     let path = root.join(version_key(soffice));
     if path.join("user").is_dir() {
         return Some(path);
@@ -145,11 +150,19 @@ mod tests {
     use super::*;
 
     #[test]
+    #[cfg(windows)]
     fn urls_escape_spaces_and_unicode() {
         assert_eq!(
             file_url(Path::new(r"C:\Users\Jo Doe\Temp\p")),
             "file:///C:/Users/Jo%20Doe/Temp/p"
         );
         assert_eq!(file_url(Path::new(r"C:\ä")), "file:///C:/%C3%A4");
+    }
+
+    #[test]
+    #[cfg(not(windows))]
+    fn urls_escape_spaces_and_unicode() {
+        assert_eq!(file_url(Path::new("/home/Jo Doe/tmp/p")), "file:///home/Jo%20Doe/tmp/p");
+        assert_eq!(file_url(Path::new("/ä")), "file:///%C3%A4");
     }
 }

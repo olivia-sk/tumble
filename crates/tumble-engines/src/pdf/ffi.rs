@@ -1,5 +1,5 @@
-//! The slice of the PDFium C API that Tumble uses, loaded from pdfium.dll
-//! at runtime. Declarations follow PDFium's public/fpdfview.h.
+//! The slice of the PDFium C API that Tumble uses, loaded at runtime from
+//! `pdfium.dll`, `libpdfium.dylib` or `libpdfium.so`. Declarations follow PDFium's public/fpdfview.h.
 //!
 //! PDFium is not thread-safe: every call goes through `lock()`.
 
@@ -8,7 +8,12 @@ use libloading::Library;
 use std::ffi::{c_char, c_int, c_ulong, c_void};
 use std::sync::{Mutex, MutexGuard, OnceLock};
 
+#[cfg(windows)]
 pub const DLL: &str = "pdfium.dll";
+#[cfg(target_os = "macos")]
+pub const DLL: &str = "libpdfium.dylib";
+#[cfg(not(any(windows, target_os = "macos")))]
+pub const DLL: &str = "libpdfium.so";
 
 #[repr(C)]
 pub struct Document {
@@ -74,7 +79,7 @@ pub fn lock() -> Result<Locked, String> {
 
 fn load() -> Result<Api, String> {
     let dir =
-        native::find_dir(&[DLL]).ok_or_else(|| format!("{DLL} not found next to tumble.exe"))?;
+        native::find_dir(&[DLL]).ok_or_else(|| format!("{DLL} not found {}", native::WHERE))?;
     let lib = native::load(&dir.join(DLL))?;
     // SAFETY: each type matches the fpdfview.h declaration.
     unsafe {

@@ -44,7 +44,7 @@ fn targets_lists_reachable_formats() {
     let mut want = vec![
         "png", "webp", "heic", "avif", "gif", "tiff", "bmp", "ico", "tga", "ppm", "qoi", "exr",
     ];
-    if !vendor_dll("libx265.dll") {
+    if !vendor_dll(HEIF_ENCODER) {
         want.retain(|f| *f != "heic");
     }
     assert_eq!(ids, want);
@@ -54,10 +54,21 @@ fn targets_lists_reachable_formats() {
     let ids: Vec<&str> =
         rows.as_array().unwrap().iter().map(|r| r["id"].as_str().unwrap()).collect();
     let mut want = vec!["png", "webp", "avif", "heic", "gif", "tiff", "ico"];
-    if !vendor_dll("libx265.dll") {
+    if !vendor_dll(HEIF_ENCODER) {
         want.retain(|f| *f != "heic");
     }
     assert_eq!(ids, want);
+}
+
+#[test]
+fn targets_for_several_files_are_the_common_ones() {
+    let out = tumble(["targets", "--menu", "--json", "a.jpg", "b.png"]);
+    assert!(out.status.success(), "{}", stderr(&out));
+    let rows: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    let ids: Vec<&str> =
+        rows.as_array().unwrap().iter().map(|r| r["id"].as_str().unwrap()).collect();
+    assert!(ids.contains(&"webp") && !ids.contains(&"png") && !ids.contains(&"jpeg"), "{ids:?}");
+    assert_eq!(tumble(["targets", "a.jpg", "notes.xyz"]).status.code(), Some(3));
 }
 
 #[test]
@@ -83,7 +94,7 @@ fn engines_lists_the_image_engine() {
     assert!(out.status.success());
     let text = stdout(&out);
     assert!(text.contains("image [ok] built in"), "{text}");
-    for (engine, dll) in [("libheif", "heif.dll"), ("pdfium", "pdfium.dll")] {
+    for (engine, dll) in [("libheif", HEIF), ("pdfium", PDFIUM)] {
         let state = if vendor_dll(dll) { "[ok]" } else { "[missing]" };
         assert!(text.contains(&format!("{engine} {state}")), "{text}");
     }

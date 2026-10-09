@@ -4,7 +4,8 @@
 //!
 //! On Windows the child starts suspended, joins a Job Object, then resumes,
 //! so even its earliest children are in the job. Dropping the tree (or
-//! calling `kill`) ends the whole job.
+//! calling `kill`) ends the whole job. On macOS and Linux the child leads a
+//! new process group, and the whole group is killed.
 
 use std::io;
 use std::process::{Child, Command};
@@ -47,7 +48,13 @@ impl Tree {
             };
             Ok(Tree { child, job })
         }
-        #[cfg(not(windows))]
+        #[cfg(unix)]
+        {
+            use std::os::unix::process::CommandExt;
+            command.process_group(0);
+            Ok(Tree { child: command.spawn()? })
+        }
+        #[cfg(not(any(windows, unix)))]
         {
             Ok(Tree { child: command.spawn()? })
         }
@@ -77,6 +84,12 @@ impl Tree {
     pub fn kill(&mut self) {
         #[cfg(windows)]
         self.job.terminate();
+        #[cfg(unix)]
+        if let Ok(pgid) = libc::pid_t::try_from(self.child.id()) {
+            // SAFETY: plain syscall; the group was created by `spawn` and its
+            // leader is not reaped yet, so the id cannot have been reused.
+            unsafe { libc::kill(-pgid, libc::SIGKILL) };
+        }
         let _ = self.child.kill();
         let _ = self.child.wait();
     }
@@ -86,6 +99,13 @@ impl Drop for Tree {
     fn drop(&mut self) {
         if let Ok(None) = self.child.try_wait() {
             self.kill();
+        }
+        // Like closing the Windows job: anything the program left running
+        // in its group goes too.
+        #[cfg(unix)]
+        if let Ok(pgid) = libc::pid_t::try_from(self.child.id()) {
+            // SAFETY: plain syscall; fails harmlessly once the group is empty.
+            unsafe { libc::kill(-pgid, libc::SIGKILL) };
         }
     }
 }

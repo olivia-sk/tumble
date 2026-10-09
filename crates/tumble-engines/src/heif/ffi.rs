@@ -1,15 +1,34 @@
-//! The slice of the libheif C API (1.23) that Tumble uses, loaded from
-//! heif.dll at runtime. Declarations follow libheif's public headers.
+//! The slice of the libheif C API (1.23) that Tumble uses, loaded at
+//! runtime from `heif.dll` (Windows), `libheif.1.dylib` (macOS) or
+//! `libheif.so.1` (Linux). Declarations follow libheif's public headers.
 
 use crate::native;
 use libloading::Library;
 use std::ffi::{CStr, c_char, c_int, c_void};
 use std::sync::OnceLock;
 
-/// heif.dll and the DLLs it imports. libx265.dll is only present in the GPL
-/// build and only needed for writing, so it is checked separately.
-pub const REQUIRED: &[&str] = &["heif.dll", "libde265.dll", "aom.dll"];
+/// The libheif library itself.
+#[cfg(windows)]
+pub const LIB: &str = "heif.dll";
+#[cfg(target_os = "macos")]
+pub const LIB: &str = "libheif.1.dylib";
+#[cfg(not(any(windows, target_os = "macos")))]
+pub const LIB: &str = "libheif.so.1";
+
+/// libheif and the libraries it loads. The x265 encoder is only present in
+/// the GPL build and only needed for writing, so it is checked separately.
+#[cfg(windows)]
+pub const REQUIRED: &[&str] = &[LIB, "libde265.dll", "aom.dll"];
+#[cfg(windows)]
 pub const ENCODER: &str = "libx265.dll";
+#[cfg(target_os = "macos")]
+pub const REQUIRED: &[&str] = &[LIB, "libde265.0.dylib"];
+#[cfg(target_os = "macos")]
+pub const ENCODER: &str = "libx265.199.dylib";
+#[cfg(not(any(windows, target_os = "macos")))]
+pub const REQUIRED: &[&str] = &[LIB, "libde265.so.0"];
+#[cfg(not(any(windows, target_os = "macos")))]
+pub const ENCODER: &str = "libx265.so.199";
 
 #[repr(C)]
 pub struct Context {
@@ -116,8 +135,8 @@ pub fn api() -> Result<&'static Api, String> {
 
 fn load() -> Result<Api, String> {
     let dir = native::find_dir(REQUIRED)
-        .ok_or_else(|| format!("{} not found next to tumble.exe", REQUIRED.join(", ")))?;
-    let lib = native::load(&dir.join("heif.dll"))?;
+        .ok_or_else(|| format!("{} not found {}", REQUIRED.join(", "), native::WHERE))?;
+    let lib = native::load(&dir.join(LIB))?;
     // SAFETY: each type matches the libheif 1.23 header declaration.
     unsafe {
         Ok(Api {
